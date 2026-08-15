@@ -134,11 +134,11 @@ docker run -d \
 
 > **Important:** Restore will overwrite the existing files.
 
-You need to stop the Docker container before the restore.
+You need to stop the vaultwarden docker container before the restore.
 
-You also need to download the backup files to your local machine.
+You also need to download the backup files to your local (docker host) machine.
 
-Because the host's files are not accessible in the Docker container, you need to map the directory where the backup files that need to be restored are located to the docker container.
+Because the host's files are not accessible in the docker container, you need to map the directory where the backup files that need to be restored are located to the docker container.
 
 **And go to the directory where your backup files to be restored are located.**
 
@@ -149,7 +149,8 @@ docker run --rm -it \
   --mount type=volume,source=vaultwarden-data,target=/bitwarden/data/ \
   --mount type=bind,source=$(pwd),target=/bitwarden/restore/ \
   ttionya/vaultwarden-backup:latest restore \
-  [OPTIONS]
+  --zip-file /bitwarden/restore/<ZIP-FILE> \
+  -f
 ```
 
 If you are using "automatic backups", please confirm the vaultwarden volume and replace the `--mount` `source` section.
