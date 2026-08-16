@@ -288,11 +288,20 @@ It should be noted that the password for vaultwarden is encrypted before it is s
 
 Default: `zip` (only support `zip` and `7z` formats)
 
-#### BACKUP_KEEP_DAYS
+#### Retention Policy (GFS / Aufbewahrungsrichtlinie)
 
-Only keep last a few days backup files in the storage system. Set to `0` to keep all backup files.
+We follow a best-practice Grandfather-Father-Son (GFS) retention policy (Aufbewahrungsrichtlinie) allowing flexible daily, weekly, monthly, yearly, and recent backup retention. Set all retention variables to `0` to keep all backup files (disable cleanup).
 
-Default: `0`
+- **`BACKUP_KEEP_DAYS`**: Keep 1 backup per day for the last X days with backups.
+  - Default: `7`
+- **`BACKUP_KEEP_WEEKS`**: Keep 1 backup per week (ISO week) for the last X weeks with backups.
+  - Default: `4`
+- **`BACKUP_KEEP_MONTHS`**: Keep 1 backup per month for the last X months with backups.
+  - Default: `12`
+- **`BACKUP_KEEP_YEARS`**: Keep 1 backup per year for the last X years with backups.
+  - Default: `3`
+- **`BACKUP_KEEP_LAST`**: Keep the last X backups regardless of date.
+  - Default: `0`
 
 #### BACKUP_FILE_SUFFIX
 

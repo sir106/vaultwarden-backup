@@ -388,7 +388,23 @@ function init_env() {
 
     # BACKUP_KEEP_DAYS
     get_env BACKUP_KEEP_DAYS
-    BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-"0"}"
+    BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-"7"}"
+
+    # BACKUP_KEEP_WEEKS
+    get_env BACKUP_KEEP_WEEKS
+    BACKUP_KEEP_WEEKS="${BACKUP_KEEP_WEEKS:-"4"}"
+
+    # BACKUP_KEEP_MONTHS
+    get_env BACKUP_KEEP_MONTHS
+    BACKUP_KEEP_MONTHS="${BACKUP_KEEP_MONTHS:-"12"}"
+
+    # BACKUP_KEEP_YEARS
+    get_env BACKUP_KEEP_YEARS
+    BACKUP_KEEP_YEARS="${BACKUP_KEEP_YEARS:-"3"}"
+
+    # BACKUP_KEEP_LAST
+    get_env BACKUP_KEEP_LAST
+    BACKUP_KEEP_LAST="${BACKUP_KEEP_LAST:-"0"}"
 
     # BACKUP_FILE_DATE_FORMAT
     get_env BACKUP_FILE_SUFFIX
@@ -435,6 +451,10 @@ function init_env() {
     color yellow "ZIP_TYPE: ${ZIP_TYPE}"
     color yellow "BACKUP_FILE_DATE_FORMAT: ${BACKUP_FILE_DATE_FORMAT} (example \"[filename].$(date +"${BACKUP_FILE_DATE_FORMAT}").[ext]\")"
     color yellow "BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS}"
+    color yellow "BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS}"
+    color yellow "BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS}"
+    color yellow "BACKUP_KEEP_YEARS: ${BACKUP_KEEP_YEARS}"
+    color yellow "BACKUP_KEEP_LAST: ${BACKUP_KEEP_LAST}"
     if [[ -n "${PING_URL}" ]]; then
         color yellow "PING_URL: curl${PING_URL_CURL_OPTIONS:+" ${PING_URL_CURL_OPTIONS}"} \"${PING_URL}\""
     fi
