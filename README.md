@@ -288,9 +288,9 @@ It should be noted that the password for vaultwarden is encrypted before it is s
 
 Default: `zip` (only support `zip` and `7z` formats)
 
-#### Retention Policy (GFS / Aufbewahrungsrichtlinie)
+#### BACKUP_KEEP_[DAYS/WEEKS/MONTHS/YEARS/LAST]
 
-We follow a best-practice Grandfather-Father-Son (GFS) retention policy (Aufbewahrungsrichtlinie) allowing flexible daily, weekly, monthly, yearly, and recent backup retention. Set all retention variables to `0` to keep all backup files (disable cleanup).
+We follow a best-practice Grandfather-Father-Son (GFS) retention policy allowing flexible daily, weekly, monthly, yearly, and recent backup retention. Set all retention variables to `0` to keep all backup files (disable cleanup).
 
 - **`BACKUP_KEEP_DAYS`**: Keep 1 backup per day for the last X days with backups.
   - Default: `7`
@@ -557,7 +557,7 @@ MY_ENV="example1"
 MY_ENV_FILE="/path/to/example2"
 
 # For 3 (.env file)
-MY_ENV_FILE="/path/to/example3" 
+MY_ENV_FILE="/path/to/example3"
 
 # For 4 (.env file)
 MY_ENV="example4"
