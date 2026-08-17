@@ -8,3 +8,8 @@
 # Log
 *.log
 *.log.*
+
+# Env
+.env
+*.env
+!.env.example
