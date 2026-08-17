@@ -330,6 +330,48 @@ When using `Docker Compose`, this does not need to be changed. However, when usi
 
 Default: `/bitwarden/data`
 
+#### BW_EXPORT_ENABLE
+
+Enable exporting the Bitwarden/Vaultwarden vault (JSON / Encrypted JSON / CSV) using the official Bitwarden CLI. When enabled, `BW_SERVER_URL`, `BW_CLIENTID`, `BW_CLIENTSECRET`, and `BW_PASSWORD` are required.
+
+Default: `FALSE`
+
+#### BW_SERVER_URL
+
+Your Vaultwarden instance URL (e.g. `https://vaultwarden.example.com`).
+
+Default: `''`
+
+#### BW_CLIENTID
+
+The Bitwarden API Key Client ID (`user.xxxx`). Obtainable from Web Vault -> Account Settings -> Security -> Keys.
+
+Default: `''`
+
+#### BW_CLIENTSECRET
+
+The Bitwarden API Key Client Secret.
+
+Default: `''`
+
+#### BW_PASSWORD
+
+Your Bitwarden account master password used to unlock and decrypt the exported vault.
+
+Default: `''`
+
+#### BW_EXPORT_FORMAT
+
+The format of the vault export. Options: `json`, `encrypted_json`, or `csv`.
+
+Default: `json`
+
+#### BW_ORGANIZATION_ID
+
+(Optional) The Organization ID if you want to export an organization vault instead of the personal vault.
+
+Default: `''`
+
 <strong>※ Please refer to the [`Notification`](#notification) section for notification-related environment variables.</strong>
 
 <details>

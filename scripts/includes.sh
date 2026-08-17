@@ -344,6 +344,7 @@ function init_env() {
     init_env_display
     init_env_ping
     init_env_mail
+    init_env_bw_export
 
     # CRON
     get_env CRON
@@ -458,6 +459,17 @@ function init_env() {
             else
                 color yellow "MAIL_MESSAGE_ID: auto generate"
             fi
+        fi
+    fi
+    color yellow "BW_EXPORT_ENABLE: ${BW_EXPORT_ENABLE}"
+    if [[ "${BW_EXPORT_ENABLE}" == "TRUE" ]]; then
+        color yellow "BW_SERVER_URL: ${BW_SERVER_URL}"
+        color yellow "BW_CLIENTID: ${BW_CLIENTID}"
+        color yellow "BW_CLIENTSECRET: ***(${#BW_CLIENTSECRET} Chars)"
+        color yellow "BW_PASSWORD: ***(${#BW_PASSWORD} Chars)"
+        color yellow "BW_EXPORT_FORMAT: ${BW_EXPORT_FORMAT}"
+        if [[ -n "${BW_ORGANIZATION_ID}" ]]; then
+            color yellow "BW_ORGANIZATION_ID: ${BW_ORGANIZATION_ID}"
         fi
     fi
     color yellow "TIMEZONE: ${TIMEZONE}"
@@ -653,3 +665,44 @@ function init_env_mail() {
         MAIL_PARENT_MESSAGE_ID=""
     fi
 }
+
+function init_env_bw_export() {
+    # BW_EXPORT_ENABLE
+    get_env BW_EXPORT_ENABLE
+    if [[ "${BW_EXPORT_ENABLE^^}" == "TRUE" ]]; then
+        BW_EXPORT_ENABLE="TRUE"
+    else
+        BW_EXPORT_ENABLE="FALSE"
+    fi
+
+    # BW_SERVER_URL
+    get_env BW_SERVER_URL
+    BW_SERVER_URL="${BW_SERVER_URL:-""}"
+
+    # BW_CLIENTID
+    get_env BW_CLIENTID
+    BW_CLIENTID="${BW_CLIENTID:-""}"
+
+    # BW_CLIENTSECRET
+    get_env BW_CLIENTSECRET
+    BW_CLIENTSECRET="${BW_CLIENTSECRET:-""}"
+
+    # BW_PASSWORD
+    get_env BW_PASSWORD
+    BW_PASSWORD="${BW_PASSWORD:-""}"
+
+    # BW_EXPORT_FORMAT
+    get_env BW_EXPORT_FORMAT
+    if [[ "${BW_EXPORT_FORMAT,,}" == "encrypted_json" ]]; then
+        BW_EXPORT_FORMAT="encrypted_json"
+    elif [[ "${BW_EXPORT_FORMAT,,}" == "csv" ]]; then
+        BW_EXPORT_FORMAT="csv"
+    else
+        BW_EXPORT_FORMAT="json"
+    fi
+
+    # BW_ORGANIZATION_ID
+    get_env BW_ORGANIZATION_ID
+    BW_ORGANIZATION_ID="${BW_ORGANIZATION_ID:-""}"
+}
+

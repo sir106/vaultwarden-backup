@@ -328,6 +328,48 @@ Rclone 全局参数，详见 [flags](https://rclone.org/flags/)。
 
 默认值：`/bitwarden/data`
 
+#### BW_EXPORT_ENABLE
+
+启用通过官方 Bitwarden CLI 导出 Bitwarden/Vaultwarden 密码库数据（JSON / 加密 JSON / CSV）。启用时必须提供 `BW_SERVER_URL`、`BW_CLIENTID`、`BW_CLIENTSECRET` 和 `BW_PASSWORD`。
+
+默认值：`FALSE`
+
+#### BW_SERVER_URL
+
+你的 Vaultwarden 实例地址（如 `https://vaultwarden.example.com`）。
+
+默认值：`''`
+
+#### BW_CLIENTID
+
+Bitwarden API Key Client ID (`user.xxxx`)。可在网页版密码库 -> 账户设置 -> 安全 -> 密钥中获取。
+
+默认值：`''`
+
+#### BW_CLIENTSECRET
+
+Bitwarden API Key Client Secret。
+
+默认值：`''`
+
+#### BW_PASSWORD
+
+Bitwarden 主密码，用于解锁并解密导出的密码库。
+
+默认值：`''`
+
+#### BW_EXPORT_FORMAT
+
+导出的密码库文件格式。支持：`json`、`encrypted_json` 或 `csv`。
+
+默认值：`json`
+
+#### BW_ORGANIZATION_ID
+
+（可选）如果需要导出组织密码库而非个人密码库，填入对应的组织 ID。
+
+默认值：`''`
+
 <strong>※ 通知相关环境变量请查看[通知](#通知)部分。</strong>
 
 <details>

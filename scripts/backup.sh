@@ -22,6 +22,12 @@ function backup_init() {
     BACKUP_FILE_ATTACHMENTS="${BACKUP_DIR}/attachments.${NOW}.tar"
     # backup vaultwarden sends directory
     BACKUP_FILE_SENDS="${BACKUP_DIR}/sends.${NOW}.tar"
+    # backup vaultwarden export file
+    local BW_EXPORT_EXT="json"
+    if [[ "${BW_EXPORT_FORMAT}" == "csv" ]]; then
+        BW_EXPORT_EXT="csv"
+    fi
+    BACKUP_FILE_JSON_EXPORT="${BACKUP_DIR}/export.${NOW}.${BW_EXPORT_EXT}"
     # backup zip file
     BACKUP_FILE_ZIP="${BACKUP_DIR}/backup.${NOW}.${ZIP_TYPE}"
 }
@@ -139,6 +145,93 @@ function backup_sends() {
     fi
 }
 
+function backup_json_export() {
+    if [[ "${BW_EXPORT_ENABLE}" != "TRUE" ]]; then
+        return
+    fi
+
+    color blue "backup vaultwarden vault export (${BW_EXPORT_FORMAT})"
+
+    if [[ -z "${BW_SERVER_URL}" ]]; then
+        color red "BW_SERVER_URL is required when BW_EXPORT_ENABLE is TRUE"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: BW_SERVER_URL is required."
+        exit 1
+    fi
+
+    if [[ -z "${BW_CLIENTID}" || -z "${BW_CLIENTSECRET}" ]]; then
+        color red "BW_CLIENTID and BW_CLIENTSECRET are required when BW_EXPORT_ENABLE is TRUE"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: BW_CLIENTID and BW_CLIENTSECRET are required."
+        exit 1
+    fi
+
+    if [[ -z "${BW_PASSWORD}" ]]; then
+        color red "BW_PASSWORD is required when BW_EXPORT_ENABLE is TRUE"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: BW_PASSWORD is required."
+        exit 1
+    fi
+
+    # Configure server
+    bw config server "${BW_SERVER_URL}" > /dev/null
+    if [[ $? != 0 ]]; then
+        color red "failed to configure Bitwarden server URL: ${BW_SERVER_URL}"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: Failed to configure Bitwarden server URL."
+        exit 1
+    fi
+
+    # Login with API key
+    BW_CLIENTID="${BW_CLIENTID}" BW_CLIENTSECRET="${BW_CLIENTSECRET}" bw login --apikey > /dev/null
+    if [[ $? != 0 ]]; then
+        color red "Bitwarden API login failed"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: Bitwarden API login failed."
+        bw logout > /dev/null 2>&1 || true
+        rm -rf "${HOME}/.config/Bitwarden CLI" 2>/dev/null || true
+        exit 1
+    fi
+
+    # Unlock vault
+    local BW_SESSION
+    BW_SESSION="$(bw unlock --passwordenv BW_PASSWORD --raw 2>/dev/null)"
+    if [[ $? != 0 || -z "${BW_SESSION}" ]]; then
+        color red "Bitwarden unlock failed"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: Bitwarden vault unlock failed."
+        bw logout > /dev/null 2>&1 || true
+        rm -rf "${HOME}/.config/Bitwarden CLI" 2>/dev/null || true
+        exit 1
+    fi
+
+    # Sync
+    bw sync --session "${BW_SESSION}" > /dev/null 2>&1
+
+    # Export
+    local EXTRA_EXPORT_ARGS=()
+    if [[ -n "${BW_ORGANIZATION_ID}" ]]; then
+        EXTRA_EXPORT_ARGS+=("--organizationid" "${BW_ORGANIZATION_ID}")
+    fi
+
+    if [[ "${BW_EXPORT_FORMAT}" == "encrypted_json" ]]; then
+        EXTRA_EXPORT_ARGS+=("--format" "encrypted_json" "--passwordenv" "BW_PASSWORD")
+    elif [[ "${BW_EXPORT_FORMAT}" == "csv" ]]; then
+        EXTRA_EXPORT_ARGS+=("--format" "csv")
+    else
+        EXTRA_EXPORT_ARGS+=("--format" "json")
+    fi
+
+    bw export --session "${BW_SESSION}" --output "${BACKUP_FILE_JSON_EXPORT}" "${EXTRA_EXPORT_ARGS[@]}" > /dev/null 2>&1
+    local EXPORT_RESULT=$?
+
+    # Logout and cleanup credentials immediately
+    bw logout > /dev/null 2>&1 || true
+    rm -rf "${HOME}/.config/Bitwarden CLI" 2>/dev/null || true
+
+    if [[ ${EXPORT_RESULT} != 0 || ! -f "${BACKUP_FILE_JSON_EXPORT}" ]]; then
+        color red "Bitwarden export failed"
+        send_notification "failure" "Backup failed at $(date +"%Y-%m-%d %H:%M:%S %Z"). Reason: Bitwarden export failed."
+        exit 1
+    fi
+
+    color green "Bitwarden vault export successful"
+}
+
 function backup() {
     mkdir -p "${BACKUP_DIR}"
 
@@ -152,6 +245,7 @@ function backup() {
     backup_rsakey
     backup_attachments
     backup_sends
+    backup_json_export
 
     ls -lah "${BACKUP_DIR}"
 }
