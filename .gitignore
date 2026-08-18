@@ -13,3 +13,8 @@
 .env
 *.env
 !.env.example
+
+# Test artifacts
+/extract/
+/output/
+/tmp/
