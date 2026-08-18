@@ -107,6 +107,84 @@ function check_dir_exist() {
 }
 
 ########################################
+# Convert a date format string to a regular expression.
+# Arguments:
+#     date format string
+# Outputs:
+#     regular expression
+########################################
+function date_format_to_regex() {
+    local fmt="$1"
+    local rx=""
+    local len=${#fmt}
+    local i=0
+
+    while (( i < len )); do
+        local c="${fmt:$i:1}"
+        if [[ "$c" == "%" ]]; then
+            (( i++ ))
+            if (( i >= len )); then
+                rx="${rx}%"
+                break
+            fi
+            local flag=""
+            local next_c="${fmt:$i:1}"
+            if [[ "$next_c" =~ ^[-_0^#]$ ]]; then
+                flag="$next_c"
+                (( i++ ))
+                if (( i >= len )); then
+                    rx="${rx}%${flag}"
+                    break
+                fi
+                next_c="${fmt:$i:1}"
+            fi
+
+            case "$next_c" in
+                "%") rx="${rx}%" ;;
+                "Y"|"G") rx="${rx}[0-9]{4}" ;;
+                "y"|"g"|"C") rx="${rx}[0-9]{2}" ;;
+                "m"|"d"|"H"|"M"|"S"|"I"|"V"|"U"|"W")
+                    if [[ "$flag" == "-" ]]; then
+                        rx="${rx}[0-9]{1,2}"
+                    elif [[ "$flag" == "_" ]]; then
+                        rx="${rx}[0-9 ]{1,2}"
+                    else
+                        rx="${rx}[0-9]{2}"
+                    fi
+                    ;;
+                "e"|"k"|"l") rx="${rx}[0-9 ]{1,2}" ;;
+                "j") rx="${rx}[0-9]{3}" ;;
+                "u") rx="${rx}[1-7]" ;;
+                "w") rx="${rx}[0-6]" ;;
+                "s") rx="${rx}[0-9]+" ;;
+                "N") rx="${rx}[0-9]{1,9}" ;;
+                "F") rx="${rx}[0-9]{4}-[0-9]{2}-[0-9]{2}" ;;
+                "T") rx="${rx}[0-9]{2}:[0-9]{2}:[0-9]{2}" ;;
+                "R") rx="${rx}[0-9]{2}:[0-9]{2}" ;;
+                "b"|"h"|"B"|"a"|"A"|"p"|"P") rx="${rx}[A-Za-z]+" ;;
+                "z") rx="${rx}[+-][0-9]{4}" ;;
+                "Z") rx="${rx}[A-Za-z0-9_+-]+" ;;
+                *)
+                    rx="${rx}[0-9a-zA-Z_-]+"
+                    ;;
+            esac
+        else
+            case "$c" in
+                \\|\.|\^|\$|\*|\+|\?|\(|\)|\[|\]|\{|\}|\|)
+                    rx="${rx}\\${c}"
+                    ;;
+                *)
+                    rx="${rx}${c}"
+                    ;;
+            esac
+        fi
+        (( i++ ))
+    done
+
+    echo "$rx"
+}
+
+########################################
 # Send mail by s-nail.
 # Arguments:
 #     mail subject
@@ -412,6 +490,7 @@ function init_env() {
     get_env BACKUP_FILE_DATE_SUFFIX
     BACKUP_FILE_DATE="$(echo "${BACKUP_FILE_DATE:-"%Y%m%d"}${BACKUP_FILE_DATE_SUFFIX}" | sed 's/[^0-9a-zA-Z%_-]//g')"
     BACKUP_FILE_DATE_FORMAT="$(echo "${BACKUP_FILE_SUFFIX:-"${BACKUP_FILE_DATE}"}" | sed 's/\///g')"
+    BACKUP_FILE_SUFFIX_REGEX="$(date_format_to_regex "${BACKUP_FILE_DATE_FORMAT}")"
 
     # TIMEZONE
     get_env TIMEZONE
