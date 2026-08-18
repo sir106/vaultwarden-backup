@@ -15,6 +15,14 @@ function color() {
     esac
 }
 
+if ! declare -f date_format_to_regex > /dev/null; then
+    if [[ -f "scripts/includes.sh" ]]; then
+        . scripts/includes.sh
+    elif [[ -f "/app/includes.sh" ]]; then
+        . /app/includes.sh
+    fi
+fi
+
 # Standalone implementation of GFS evaluation for testing
 function evaluate_retention() {
     local -n _remote_files=$1
@@ -25,6 +33,7 @@ function evaluate_retention() {
     local keep_last=$6
     local -n _out_kept=$7
     local -n _out_deleted=$8
+    local suffix_pattern="${9:-"%Y%m%d"}"
 
     _out_kept=()
     _out_deleted=()
@@ -32,6 +41,9 @@ function evaluate_retention() {
     if [[ "${keep_days}" -eq 0 && "${keep_weeks}" -eq 0 && "${keep_months}" -eq 0 && "${keep_years}" -eq 0 && "${keep_last}" -eq 0 ]]; then
         return 0
     fi
+
+    local suffix_rx
+    suffix_rx="$(date_format_to_regex "${suffix_pattern}")"
 
     declare -A SNAPSHOT_TIMESTAMP=()
     declare -A SNAPSHOT_FILES=()
@@ -45,10 +57,28 @@ function evaluate_retention() {
         local SNAP_ID=""
 
         if [[ "${FILE_NAME}" =~ ^backup\.(.+)\.(zip|7z)$ ]]; then
-            SNAP_ID="pkg_${BASH_REMATCH[1]}"
-        elif [[ "${FILE_NAME}" =~ ^(db|config|rsakey|attachments|sends)\.(.+)\.(sqlite3|dump|sql|json|tar)$ ]]; then
-            SNAP_ID="unpacked_${BASH_REMATCH[2]}"
-        else
+            local SUFFIX="${BASH_REMATCH[1]}"
+            if [[ "${SUFFIX}" =~ ^${suffix_rx}$ ]]; then
+                SNAP_ID="pkg_${SUFFIX}"
+            fi
+        elif [[ "${FILE_NAME}" =~ ^db\.(.+)\.(sqlite3|dump|sql)$ ]]; then
+            local SUFFIX="${BASH_REMATCH[1]}"
+            if [[ "${SUFFIX}" =~ ^${suffix_rx}$ ]]; then
+                SNAP_ID="unpacked_${SUFFIX}"
+            fi
+        elif [[ "${FILE_NAME}" =~ ^config\.(.+)\.json$ ]]; then
+            local SUFFIX="${BASH_REMATCH[1]}"
+            if [[ "${SUFFIX}" =~ ^${suffix_rx}$ ]]; then
+                SNAP_ID="unpacked_${SUFFIX}"
+            fi
+        elif [[ "${FILE_NAME}" =~ ^(rsakey|attachments|sends)\.(.+)\.tar$ ]]; then
+            local SUFFIX="${BASH_REMATCH[2]}"
+            if [[ "${SUFFIX}" =~ ^${suffix_rx}$ ]]; then
+                SNAP_ID="unpacked_${SUFFIX}"
+            fi
+        fi
+
+        if [[ -z "${SNAP_ID}" ]]; then
             continue
         fi
 
@@ -200,6 +230,55 @@ if [[ "${#KEPT[@]}" -ne 1 || "${#DELETED[@]}" -ne 3 ]]; then
     ((FAILED_NUM++))
 else
     color green "Test 4 (unpacked multi-file snapshots & non-backup file ignore) passed"
+fi
+
+# Test 5: Only delete files matching BACKUP_FILE_SUFFIX pattern (%Y%m%d) and valid extensions
+FILES_TEST5=(
+    "2026-08-16T08:00:00Z;backup.20260816.zip"
+    "2026-08-01T08:00:00Z;backup.20260801.zip"
+    "2026-08-01T08:00:00Z;backup.other_instance_20260801.zip"
+    "2026-08-01T08:00:00Z;backup.my_photos.zip"
+    "2026-08-01T08:00:00Z;db.other_inst_20260801.sqlite3"
+    "2026-08-01T08:00:00Z;config.20260801.sqlite3"
+    "2026-08-01T08:00:00Z;attachments.20260801.zip"
+    "2026-08-01T08:00:00Z;rsakey.20260801.dump"
+    "2026-08-01T08:00:00Z;sends.20260801.sql"
+    "2026-08-01T08:00:00Z;backup.20260801.tar.gz"
+)
+evaluate_retention FILES_TEST5 1 0 0 0 0 KEPT DELETED "%Y%m%d"
+if [[ "${#KEPT[@]}" -ne 1 || "${#DELETED[@]}" -ne 1 || "${DELETED[0]}" != "backup.20260801.zip" ]]; then
+    color red "Test 5 failed: Expected only backup.20260801.zip deleted, got deleted=${DELETED[*]}"
+    ((FAILED_NUM++))
+else
+    color green "Test 5 (only delete files matching BACKUP_FILE_SUFFIX pattern) passed"
+fi
+
+# Test 6: Custom BACKUP_FILE_SUFFIX pattern (%Y-%m-%d_%H-%M-%S)
+FILES_TEST6=(
+    "2026-08-16T10:00:00Z;backup.2026-08-16_10-00-00.zip"
+    "2026-08-01T10:00:00Z;backup.2026-08-01_10-00-00.zip"
+    "2026-08-01T10:00:00Z;backup.20260801.zip"
+)
+evaluate_retention FILES_TEST6 1 0 0 0 0 KEPT DELETED "%Y-%m-%d_%H-%M-%S"
+if [[ "${#KEPT[@]}" -ne 1 || "${#DELETED[@]}" -ne 1 || "${DELETED[0]}" != "backup.2026-08-01_10-00-00.zip" ]]; then
+    color red "Test 6 failed: Expected only backup.2026-08-01_10-00-00.zip deleted, got deleted=${DELETED[*]}"
+    ((FAILED_NUM++))
+else
+    color green "Test 6 (custom date format %Y-%m-%d_%H-%M-%S) passed"
+fi
+
+# Test 7: Literal BACKUP_FILE_SUFFIX (test)
+FILES_TEST7=(
+    "2026-08-16T08:00:00Z;backup.test.zip"
+    "2026-08-01T08:00:00Z;backup.test1.zip"
+    "2026-08-01T08:00:00Z;backup.20260801.zip"
+)
+evaluate_retention FILES_TEST7 1 0 0 0 0 KEPT DELETED "test"
+if [[ "${#KEPT[@]}" -ne 1 || "${#DELETED[@]}" -ne 0 ]]; then
+    color red "Test 7 failed: Expected 1 kept and 0 deleted for literal suffix test, got kept=${#KEPT[@]}, deleted=${#DELETED[@]}"
+    ((FAILED_NUM++))
+else
+    color green "Test 7 (literal suffix 'test') passed"
 fi
 
 if declare -f test_result > /dev/null; then

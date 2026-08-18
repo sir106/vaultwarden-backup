@@ -235,6 +235,11 @@ function clear_history() {
         declare -A SNAPSHOT_FILES=()
         local SNAPSHOT_IDS=()
 
+        local SUFFIX_REGEX="${BACKUP_FILE_SUFFIX_REGEX:-}"
+        if [[ -z "${SUFFIX_REGEX}" ]]; then
+            SUFFIX_REGEX="$(date_format_to_regex "${BACKUP_FILE_DATE_FORMAT}")"
+        fi
+
         for FILE_ENTRY in "${RCLONE_REMOTE_FILES[@]}"; do
             [[ -z "${FILE_ENTRY}" ]] && continue
 
@@ -243,11 +248,29 @@ function clear_history() {
             local SNAP_ID=""
 
             if [[ "${FILE_NAME}" =~ ^backup\.(.+)\.(zip|7z)$ ]]; then
-                SNAP_ID="pkg_${BASH_REMATCH[1]}"
-            elif [[ "${FILE_NAME}" =~ ^(db|config|rsakey|attachments|sends)\.(.+)\.(sqlite3|dump|sql|json|tar)$ ]]; then
-                SNAP_ID="unpacked_${BASH_REMATCH[2]}"
-            else
-                # Non-backup file, ignore
+                local SUFFIX="${BASH_REMATCH[1]}"
+                if [[ "${SUFFIX}" =~ ^${SUFFIX_REGEX}$ ]]; then
+                    SNAP_ID="pkg_${SUFFIX}"
+                fi
+            elif [[ "${FILE_NAME}" =~ ^db\.(.+)\.(sqlite3|dump|sql)$ ]]; then
+                local SUFFIX="${BASH_REMATCH[1]}"
+                if [[ "${SUFFIX}" =~ ^${SUFFIX_REGEX}$ ]]; then
+                    SNAP_ID="unpacked_${SUFFIX}"
+                fi
+            elif [[ "${FILE_NAME}" =~ ^config\.(.+)\.json$ ]]; then
+                local SUFFIX="${BASH_REMATCH[1]}"
+                if [[ "${SUFFIX}" =~ ^${SUFFIX_REGEX}$ ]]; then
+                    SNAP_ID="unpacked_${SUFFIX}"
+                fi
+            elif [[ "${FILE_NAME}" =~ ^(rsakey|attachments|sends)\.(.+)\.tar$ ]]; then
+                local SUFFIX="${BASH_REMATCH[2]}"
+                if [[ "${SUFFIX}" =~ ^${SUFFIX_REGEX}$ ]]; then
+                    SNAP_ID="unpacked_${SUFFIX}"
+                fi
+            fi
+
+            if [[ -z "${SNAP_ID}" ]]; then
+                # Non-backup file or suffix mismatch, ignore
                 continue
             fi
 
