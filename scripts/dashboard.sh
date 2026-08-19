@@ -135,7 +135,7 @@ function require_admin_token() {
 
 function is_supported_backup_file() {
     case "$1" in
-        backup.*.zip|backup.*.7z|db.*.sqlite3|db.*.dump|db.*.sql|config.*.json|rsakey.*.tar|attachments.*.tar|sends.*.tar)
+        backup.*.zip|backup.*.7z|backup*.zip|backup*.7z|db.*.sqlite3|db.*.dump|db.*.sql|config.*.json|rsakey.*.tar|attachments.*.tar|sends.*.tar)
             return 0
             ;;
         *)
@@ -146,7 +146,7 @@ function is_supported_backup_file() {
 
 function detect_restore_flag() {
     case "$1" in
-        backup.*.zip|backup.*.7z) echo -n "--zip-file" ;;
+        backup.*.zip|backup.*.7z|backup*.zip|backup*.7z) echo -n "--zip-file" ;;
         db.*.sqlite3|db.*.dump|db.*.sql) echo -n "--db-file" ;;
         config.*.json) echo -n "--config-file" ;;
         rsakey.*.tar) echo -n "--rsakey-file" ;;
@@ -296,10 +296,13 @@ function list_recent_backups_json() {
 
     if [[ -f "${TMP_LINES}" ]]; then
         while IFS='|' read -r _MOD_EPOCH REMOTE FILE_NAME FILE_SIZE FILE_MODIFIED; do
+            if [[ -z "${FILE_NAME}" ]]; then
+                continue
+            fi
             if [[ "${FIRST}" == "TRUE" ]]; then
                 FIRST="FALSE"
             else
-                RESULT+=" ,"
+                RESULT+=","
             fi
 
             RESULT+="{\"remote\":\"$(json_escape "${REMOTE}")\",\"file\":\"$(json_escape "${FILE_NAME}")\",\"size\":${FILE_SIZE:-0},\"modified\":\"$(json_escape "${FILE_MODIFIED}")\"}"
@@ -385,13 +388,14 @@ EOF
 
     append_activity_log "restore_dry_run" "id=${DRY_RUN_ID};remote=${REMOTE};file=${FILE_NAME}"
 
-    printf '{"ok":true,"dry_run_id":"%s","remote":"%s","file":"%s","restore_flag":"%s"}' \
+    local RESPONSE_JSON
+    RESPONSE_JSON=$(printf '{"ok":true,"dry_run_id":"%s","remote":"%s","file":"%s","restore_flag":"%s"}' \
       "$(json_escape "${DRY_RUN_ID}")" \
       "$(json_escape "${REMOTE}")" \
       "$(json_escape "${FILE_NAME}")" \
-      "$(json_escape "${RESTORE_FLAG}")" | while IFS= read -r JSON; do
-        send_json "200 OK" "${JSON}"
-      done
+      "$(json_escape "${RESTORE_FLAG}")")
+
+    send_json "200 OK" "${RESPONSE_JSON}"
 }
 
 function run_restore_job() {
@@ -418,31 +422,38 @@ function run_restore_job() {
     write_restore_status "${RESTORE_ID}" "running" "restore started" "${file}" "${remote}"
 
     {
+        echo "[dashboard] creating restore directory: ${RESTORE_DIR}"
+        mkdir -p "${RESTORE_DIR}"
+
         echo "[dashboard] downloading ${file} from ${remote}"
         rclone ${RCLONE_GLOBAL_FLAG} copyto "${remote}/${file}" "${RESTORE_TARGET_FILE}"
         if [[ $? != 0 ]]; then
             echo "[dashboard] download failed"
             write_restore_status "${RESTORE_ID}" "failed" "download failed" "${file}" "${remote}"
             append_activity_log "restore_execute_failed" "id=${RESTORE_ID};reason=download_failed"
-            return
+            return 1
         fi
 
-        echo "[dashboard] running restore"
-        . /app/restore.sh
-
-        if [[ "${restore_flag}" == "--zip-file" && -n "${ZIP_PASSWORD_VALUE}" ]]; then
-            restore -f -p "${ZIP_PASSWORD_VALUE}" "${restore_flag}" "${file}"
+        echo "[dashboard] executing restore"
+        local RESTORE_CMD=()
+        local EFFECTIVE_PASSWORD="${ZIP_PASSWORD_VALUE:-"${ZIP_PASSWORD}"}"
+        if [[ -n "${EFFECTIVE_PASSWORD}" && "${restore_flag}" == "--zip-file" ]]; then
+            RESTORE_CMD=(bash /app/entrypoint.sh restore -f -p "${EFFECTIVE_PASSWORD}" "${restore_flag}" "${file}")
         else
-            restore -f "${restore_flag}" "${file}"
+            RESTORE_CMD=(bash /app/entrypoint.sh restore -f "${restore_flag}" "${file}")
         fi
 
-        if [[ $? != 0 ]]; then
-            echo "[dashboard] restore failed"
-            write_restore_status "${RESTORE_ID}" "failed" "restore command failed" "${file}" "${remote}"
+        "${RESTORE_CMD[@]}"
+        local RESTORE_EXIT_CODE=$?
+
+        if [[ ${RESTORE_EXIT_CODE} != 0 ]]; then
+            echo "[dashboard] restore failed with exit code ${RESTORE_EXIT_CODE}"
+            write_restore_status "${RESTORE_ID}" "failed" "restore command failed (exit code ${RESTORE_EXIT_CODE})" "${file}" "${remote}"
             append_activity_log "restore_execute_failed" "id=${RESTORE_ID};reason=restore_failed"
-            return
+            return 1
         fi
 
+        echo "[dashboard] restore completed successfully"
         write_restore_status "${RESTORE_ID}" "success" "restore completed" "${file}" "${remote}"
         append_activity_log "restore_execute_success" "id=${RESTORE_ID};remote=${remote};file=${file}"
     } >> "${LOG_FILE}" 2>&1
@@ -502,9 +513,10 @@ function handle_restore_execute() {
 
     append_activity_log "restore_execute" "id=${RESTORE_ID};dry_run_id=${DRY_RUN_ID};remote=${remote};file=${file}"
 
-    printf '{"ok":true,"restore_id":"%s","status":"queued"}' "$(json_escape "${RESTORE_ID}")" | while IFS= read -r JSON; do
-        send_json "200 OK" "${JSON}"
-    done
+    local RESPONSE_JSON
+    RESPONSE_JSON=$(printf '{"ok":true,"restore_id":"%s","status":"queued"}' "$(json_escape "${RESTORE_ID}")")
+
+    send_json "200 OK" "${RESPONSE_JSON}"
 }
 
 function handle_restore_status() {
@@ -528,232 +540,504 @@ cat <<'EOF'
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Vaultwarden Backup Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #f8fafc;
-      --panel: #ffffff;
-      --ink: #0f172a;
-      --muted: #475569;
-      --accent: #0f766e;
-      --accent2: #164e63;
-      --danger: #b91c1c;
-      --line: #cbd5e1;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #38bdf8;
+      --primary-hover: #0ea5e9;
+      --accent: #6366f1;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --code-bg: #0b0f19;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at 15% 10%, #dbeafe 0, transparent 32%),
-        radial-gradient(circle at 82% 14%, #cffafe 0, transparent 28%),
-        linear-gradient(160deg, #f8fafc, #eef2ff);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      color: var(--text-main);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.12) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.12) 0px, transparent 50%);
       min-height: 100vh;
+      padding: 24px 16px;
     }
-    .wrap {
-      max-width: 980px;
-      margin: 24px auto;
-      padding: 16px;
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
     }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
-      margin-bottom: 16px;
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
     }
-    h1 { margin: 0 0 8px; letter-spacing: 0.2px; }
-    .muted { color: var(--muted); }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      margin: 4px 0 0;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .auth-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    input[type="text"], input[type="password"], select {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: var(--primary);
+    }
+    .flex-1 { flex: 1; min-width: 240px; }
+    button {
+      background: var(--primary);
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: var(--primary-hover);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    button.secondary {
+      background: #334155;
+      color: #f8fafc;
+    }
+    button.secondary:hover {
+      background: #475569;
+      box-shadow: none;
+    }
+    button.danger {
+      background: var(--danger);
+      color: #ffffff;
+    }
+    button.danger:hover {
+      background: #dc2626;
+      box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+    }
+    .table-container {
+      overflow-x: auto;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 14px;
     }
-    th, td {
-      border-bottom: 1px solid var(--line);
+    th {
       text-align: left;
-      padding: 10px 8px;
-      vertical-align: middle;
+      padding: 12px 10px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      font-weight: 500;
     }
-    button {
-      border: none;
-      border-radius: 10px;
-      padding: 8px 12px;
+    td {
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+    }
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      color: #fff;
-      background: linear-gradient(120deg, var(--accent), var(--accent2));
     }
-    button.danger { background: var(--danger); }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    input[type="password"], input[type="text"] {
-      border: 1px solid var(--line);
+    .badge-queued { background: #334155; color: #94a3b8; }
+    .badge-running { background: rgba(56, 189, 248, 0.2); color: #38bdf8; }
+    .badge-success { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+    .badge-failed { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+    .status-box {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
       border-radius: 8px;
-      padding: 8px;
-      min-width: 220px;
-    }
-    .status {
-      padding: 10px;
-      border-left: 4px solid var(--accent);
-      background: #f1f5f9;
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #cbd5e1;
       white-space: pre-wrap;
-      word-break: break-word;
+      word-break: break-all;
+      max-height: 250px;
+      overflow-y: auto;
     }
-    @media (max-width: 760px) {
-      table, thead, tbody, th, td, tr { display: block; }
-      th { display: none; }
-      tr { border: 1px solid var(--line); margin-bottom: 10px; border-radius: 10px; }
-      td { border: none; border-bottom: 1px solid var(--line); }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="panel">
-      <h1>Vaultwarden Backup Dashboard</h1>
-      <div class="muted">Review recent remote backups, run dry-run validation, and start restore jobs.</div>
-      <div class="row" style="margin-top:10px;">
-        <input id="token" type="password" placeholder="ADMIN_TOKEN" />
-        <button id="load">Load Recent Backups</button>
+  <div class="container">
+    <div class="header">
+      <div>
+        <h1>Vaultwarden Backup Dashboard</h1>
+        <p>Review remote backups, run validation checks, and execute restores safely.</p>
+      </div>
+      <div id="authStatus" class="badge badge-queued">Not Authenticated</div>
+    </div>
+
+    <!-- Auth Card -->
+    <div class="card">
+      <div class="card-title">🔑 Authentication</div>
+      <div class="auth-bar">
+        <input id="tokenInput" type="password" class="flex-1" placeholder="Enter Vaultwarden ADMIN_TOKEN" />
+        <button id="saveTokenBtn" class="secondary">Save Token</button>
+        <button id="clearTokenBtn" class="secondary">Clear</button>
+        <button id="loadBackupsBtn">🔄 Load Backups</button>
       </div>
     </div>
 
-    <div class="panel">
-      <table>
-        <thead><tr><th>Remote</th><th>File</th><th>Size</th><th>Modified</th><th>Action</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
+    <!-- Backups List Card -->
+    <div class="card">
+      <div class="card-title">📦 Recent Remote Backups</div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Remote</th>
+              <th>Backup File</th>
+              <th>Size</th>
+              <th>Modified</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="backupRows">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                Enter your ADMIN_TOKEN above and click "Load Backups".
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div class="panel">
-      <div class="row">
-        <input id="dryRunId" type="text" placeholder="Dry run id" />
-        <input id="zipPassword" type="password" placeholder="Zip password (if needed)" />
-        <button id="execute" class="danger">Execute Restore</button>
+    <div class="grid-2">
+      <!-- Dry-Run & Execute Card -->
+      <div class="card">
+        <div class="card-title">🚀 Restore Control</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">Selected Dry-Run ID</label>
+            <input id="dryRunIdInput" type="text" style="width:100%" placeholder="Generated from Dry Run action" />
+          </div>
+          <div>
+            <label style="font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px;">ZIP / 7Z Password (if encrypted)</label>
+            <input id="zipPasswordInput" type="password" style="width:100%" placeholder="Optional archive password" />
+          </div>
+          <div style="margin-top:8px;">
+            <button id="executeRestoreBtn" class="danger" style="width:100%">⚠️ Execute Restore</button>
+          </div>
+        </div>
       </div>
-      <div class="row" style="margin-top:8px;">
-        <input id="restoreId" type="text" placeholder="Restore id" />
-        <button id="status">Check Status</button>
+
+      <!-- Status & Activity Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>📊 Status & Logs</span>
+          <span id="jobBadge" class="badge badge-queued" style="margin-left:auto;">Idle</span>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:12px;">
+          <input id="restoreIdInput" type="text" class="flex-1" placeholder="Restore Task ID" />
+          <button id="checkStatusBtn" class="secondary">Check</button>
+        </div>
+        <div id="statusBox" class="status-box">Status updates and logs will appear here.</div>
       </div>
-      <div id="statusText" class="status" style="margin-top:10px;">Status will appear here.</div>
     </div>
   </div>
 
-<script>
-const rowsEl = document.getElementById('rows');
-const tokenEl = document.getElementById('token');
-const dryRunIdEl = document.getElementById('dryRunId');
-const zipPasswordEl = document.getElementById('zipPassword');
-const restoreIdEl = document.getElementById('restoreId');
-const statusText = document.getElementById('statusText');
+  <script>
+    const tokenInput = document.getElementById('tokenInput');
+    const saveTokenBtn = document.getElementById('saveTokenBtn');
+    const clearTokenBtn = document.getElementById('clearTokenBtn');
+    const loadBackupsBtn = document.getElementById('loadBackupsBtn');
+    const authStatus = document.getElementById('authStatus');
+    const backupRows = document.getElementById('backupRows');
+    const dryRunIdInput = document.getElementById('dryRunIdInput');
+    const zipPasswordInput = document.getElementById('zipPasswordInput');
+    const executeRestoreBtn = document.getElementById('executeRestoreBtn');
+    const restoreIdInput = document.getElementById('restoreIdInput');
+    const checkStatusBtn = document.getElementById('checkStatusBtn');
+    const statusBox = document.getElementById('statusBox');
+    const jobBadge = document.getElementById('jobBadge');
 
-function authHeaders() {
-  return { 'X-Admin-Token': tokenEl.value };
-}
+    let pollInterval = null;
 
-function setStatus(text) {
-  statusText.textContent = text;
-}
+    function formatBytes(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
 
-async function fetchRecent() {
-  rowsEl.innerHTML = '';
-  setStatus('Loading recent backups...');
+    function getToken() {
+      return tokenInput.value.trim();
+    }
 
-  const res = await fetch('/cgi-bin/api/backups/recent?limit=40', { headers: authHeaders() });
-  const data = await res.json();
+    function authHeaders() {
+      return {
+        'X-Admin-Token': getToken()
+      };
+    }
 
-  if (!res.ok || !data.ok) {
-    setStatus('Failed to load backups: ' + (data.error || res.status));
-    return;
-  }
+    function log(msg) {
+      const ts = new Date().toLocaleTimeString();
+      statusBox.textContent = `[${ts}] ${msg}\n` + statusBox.textContent;
+    }
 
-  for (const item of data.items) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${item.remote}</td>
-      <td>${item.file}</td>
-      <td>${item.size}</td>
-      <td>${item.modified}</td>
-      <td><button data-remote="${item.remote}" data-file="${item.file}">Dry Run</button></td>
-    `;
+    function loadSavedToken() {
+      const saved = localStorage.getItem('vw_dashboard_token');
+      if (saved) {
+        tokenInput.value = saved;
+        authStatus.textContent = 'Token Loaded';
+        authStatus.className = 'badge badge-success';
+      }
+    }
 
-    tr.querySelector('button').addEventListener('click', () => dryRun(item.remote, item.file));
-    rowsEl.appendChild(tr);
-  }
+    saveTokenBtn.addEventListener('click', () => {
+      const token = getToken();
+      if (token) {
+        localStorage.setItem('vw_dashboard_token', token);
+        authStatus.textContent = 'Token Saved';
+        authStatus.className = 'badge badge-success';
+        log('Admin token saved to browser local storage.');
+      }
+    });
 
-  setStatus('Loaded ' + data.items.length + ' backup entries.');
-}
+    clearTokenBtn.addEventListener('click', () => {
+      localStorage.removeItem('vw_dashboard_token');
+      tokenInput.value = '';
+      authStatus.textContent = 'Token Cleared';
+      authStatus.className = 'badge badge-queued';
+      log('Admin token cleared.');
+    });
 
-async function dryRun(remote, file) {
-  setStatus('Running dry-run for ' + file + '...');
+    async function loadBackups() {
+      const token = getToken();
+      if (!token) {
+        alert('Please enter an ADMIN_TOKEN first.');
+        return;
+      }
 
-  const body = new URLSearchParams({ remote, file }).toString();
-  const res = await fetch('/cgi-bin/api/restore/dry-run', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  const data = await res.json();
+      backupRows.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">Loading backups...</td></tr>';
+      log('Fetching recent backups from rclone remotes...');
 
-  if (!res.ok || !data.ok) {
-    setStatus('Dry-run failed: ' + (data.error || res.status));
-    return;
-  }
+      try {
+        const res = await fetch('/cgi-bin/api/backups/recent?limit=40', { headers: authHeaders() });
+        const data = await res.json();
 
-  dryRunIdEl.value = data.dry_run_id;
-  setStatus('Dry-run success. dry_run_id=' + data.dry_run_id + ' restore_flag=' + data.restore_flag);
-}
+        if (!res.ok || !data.ok) {
+          authStatus.textContent = 'Auth Failed';
+          authStatus.className = 'badge badge-failed';
+          backupRows.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger); padding:20px;">Error: ${data.error || res.statusText}</td></tr>`;
+          log(`Failed to fetch backups: ${data.error || res.status}`);
+          return;
+        }
 
-async function executeRestore() {
-  const dry_run_id = dryRunIdEl.value.trim();
-  const password = zipPasswordEl.value;
+        authStatus.textContent = 'Authenticated';
+        authStatus.className = 'badge badge-success';
 
-  if (!dry_run_id) {
-    setStatus('dry_run_id is required.');
-    return;
-  }
+        if (!data.items || data.items.length === 0) {
+          backupRows.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No backup files found.</td></tr>';
+          log('No backup files found on remote(s).');
+          return;
+        }
 
-  setStatus('Submitting restore job...');
+        backupRows.innerHTML = '';
+        data.items.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><code>${item.remote}</code></td>
+            <td><strong>${item.file}</strong></td>
+            <td>${formatBytes(item.size)}</td>
+            <td>${item.modified || '-'}</td>
+            <td><button class="secondary dry-run-btn" data-remote="${item.remote}" data-file="${item.file}">🧪 Dry Run</button></td>
+          `;
+          tr.querySelector('.dry-run-btn').addEventListener('click', () => triggerDryRun(item.remote, item.file));
+          backupRows.appendChild(tr);
+        });
 
-  const body = new URLSearchParams({ dry_run_id, password, force: 'true' }).toString();
-  const res = await fetch('/cgi-bin/api/restore/execute', {
-    method: 'POST',
-    headers: { ...authHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body,
-  });
-  const data = await res.json();
+        log(`Successfully loaded ${data.items.length} backup file(s).`);
+      } catch (err) {
+        backupRows.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger); padding:20px;">Network error: ${err.message}</td></tr>`;
+        log(`Network error: ${err.message}`);
+      }
+    }
 
-  if (!res.ok || !data.ok) {
-    setStatus('Execute failed: ' + (data.error || res.status));
-    return;
-  }
+    async function triggerDryRun(remote, file) {
+      log(`Starting dry-run validation for ${file} on remote ${remote}...`);
+      try {
+        const body = new URLSearchParams({ remote, file }).toString();
+        const res = await fetch('/cgi-bin/api/restore/dry-run', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        const data = await res.json();
 
-  restoreIdEl.value = data.restore_id;
-  setStatus('Restore queued. restore_id=' + data.restore_id);
-}
+        if (!res.ok || !data.ok) {
+          log(`Dry-run failed: ${data.error || res.status}`);
+          alert(`Dry-run failed: ${data.error || res.status}`);
+          return;
+        }
 
-async function checkStatus() {
-  const id = restoreIdEl.value.trim();
-  if (!id) {
-    setStatus('restore_id is required.');
-    return;
-  }
+        dryRunIdInput.value = data.dry_run_id;
+        log(`✓ Dry-run succeeded! dry_run_id: ${data.dry_run_id} (Target restore flag: ${data.restore_flag})`);
+      } catch (err) {
+        log(`Dry-run error: ${err.message}`);
+      }
+    }
 
-  const res = await fetch('/cgi-bin/api/restore/status?id=' + encodeURIComponent(id), { headers: authHeaders() });
-  const data = await res.json();
+    async function executeRestore() {
+      const dryRunId = dryRunIdInput.value.trim();
+      const password = zipPasswordInput.value;
 
-  if (!res.ok || !data.ok) {
-    setStatus('Status request failed: ' + (data.error || res.status));
-    return;
-  }
+      if (!dryRunId) {
+        alert('Please run a Dry-Run first to generate a valid dry_run_id.');
+        return;
+      }
 
-  setStatus(JSON.stringify(data, null, 2));
-}
+      const confirmed = confirm('WARNING: Restoring will overwrite existing Vaultwarden data. Are you sure you want to proceed?');
+      if (!confirmed) return;
 
-document.getElementById('load').addEventListener('click', fetchRecent);
-document.getElementById('execute').addEventListener('click', executeRestore);
-document.getElementById('status').addEventListener('click', checkStatus);
-</script>
+      log(`Initiating restore job for dry_run_id: ${dryRunId}...`);
+      try {
+        const body = new URLSearchParams({
+          dry_run_id: dryRunId,
+          password: password,
+          force: 'true'
+        }).toString();
+
+        const res = await fetch('/cgi-bin/api/restore/execute', {
+          method: 'POST',
+          headers: { ...authHeaders(), 'Content-Type': 'application/x-www-form-urlencoded' },
+          body
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          log(`Restore execution request failed: ${data.error || res.status}`);
+          alert(`Execute failed: ${data.error || res.status}`);
+          return;
+        }
+
+        restoreIdInput.value = data.restore_id;
+        jobBadge.textContent = 'Queued';
+        jobBadge.className = 'badge badge-queued';
+        log(`Restore task queued with restore_id: ${data.restore_id}. Starting auto-polling...`);
+
+        startPolling(data.restore_id);
+      } catch (err) {
+        log(`Restore execution error: ${err.message}`);
+      }
+    }
+
+    async function checkStatus(restoreId) {
+      const id = restoreId || restoreIdInput.value.trim();
+      if (!id) {
+        alert('Please enter a Restore ID.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/cgi-bin/api/restore/status?id=${encodeURIComponent(id)}`, { headers: authHeaders() });
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          log(`Status check failed for ${id}: ${data.error || res.status}`);
+          return;
+        }
+
+        jobBadge.textContent = data.status.toUpperCase();
+        if (data.status === 'running') jobBadge.className = 'badge badge-running';
+        else if (data.status === 'success') jobBadge.className = 'badge badge-success';
+        else if (data.status === 'failed') jobBadge.className = 'badge badge-failed';
+        else jobBadge.className = 'badge badge-queued';
+
+        log(`Status [${data.status}]: ${data.message}${data.last_log ? ' | Last log: ' + data.last_log : ''}`);
+
+        if (data.status === 'success' || data.status === 'failed') {
+          if (pollInterval) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+          }
+        }
+      } catch (err) {
+        log(`Status check error: ${err.message}`);
+      }
+    }
+
+    function startPolling(id) {
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = setInterval(() => checkStatus(id), 3000);
+      checkStatus(id);
+    }
+
+    loadBackupsBtn.addEventListener('click', loadBackups);
+    executeRestoreBtn.addEventListener('click', executeRestore);
+    checkStatusBtn.addEventListener('click', () => checkStatus());
+
+    loadSavedToken();
+  </script>
 </body>
 </html>
 EOF
@@ -793,11 +1077,6 @@ function handle_cgi() {
     INIT_ENV_LOG="FALSE"
     init_env
 
-    if ! require_admin_token; then
-        send_unauthorized
-        return
-    fi
-
     mkdir -p "${DASHBOARD_STATE_DIR}"
 
     case "${CGI_MODE}" in
@@ -805,6 +1084,10 @@ function handle_cgi() {
             handle_ui
             ;;
         api)
+            if ! require_admin_token; then
+                send_unauthorized
+                return
+            fi
             handle_api
             ;;
         *)
@@ -824,6 +1107,19 @@ EOF
     cat > "${DASHBOARD_CGI_DIR}/api" <<'EOF'
 #!/bin/bash
 exec /app/dashboard.sh cgi api
+EOF
+
+    cat > "${DASHBOARD_WWW_DIR}/index.html" <<'EOF'
+<!doctype html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0; url=/cgi-bin/ui">
+  <title>Redirecting...</title>
+</head>
+<body>
+  <p>Redirecting to <a href="/cgi-bin/ui">Dashboard</a>...</p>
+</body>
+</html>
 EOF
 
     chmod +x "${DASHBOARD_CGI_DIR}/ui" "${DASHBOARD_CGI_DIR}/api"
@@ -859,6 +1155,14 @@ os.environ['PYTHONUNBUFFERED'] = '1'
 
 class StatusAwareCGIHandler(CGIHTTPRequestHandler):
     cgi_directories = ['/cgi-bin']
+
+    def do_GET(self):
+        if self.path in ('', '/'):
+            self.send_response(302)
+            self.send_header('Location', '/cgi-bin/ui')
+            self.end_headers()
+            return
+        super().do_GET()
 
     def run_cgi(self):
         """Override to properly handle CGI Status header"""

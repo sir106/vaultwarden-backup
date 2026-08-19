@@ -12,4 +12,4 @@
 # Folders
 output/**
 extract/**
-tests/**
+tmp/**

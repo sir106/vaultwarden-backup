@@ -25,9 +25,9 @@ All of these variables support the `_FILE` secret pattern.
 
 Open:
 
-- `http://<host>:8080/cgi-bin/ui`
+- `http://<host>:8080/` or `http://<host>:8080/cgi-bin/ui`
 
-The page requires `ADMIN_TOKEN` input to call API endpoints.
+The web dashboard interface allows entering your `ADMIN_TOKEN` (which can be saved to browser storage) to authenticate API requests.
 
 ## API
 
