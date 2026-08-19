@@ -24,4 +24,4 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           body: |
-            [CHANGELOG](https://github.com/ttionya/vaultwarden-backup/blob/master/CHANGELOG.md)
+            [CHANGELOG](https://github.com/sir106/vaultwarden-backup/blob/main/CHANGELOG.md)

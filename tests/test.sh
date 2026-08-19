@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-DOCKER_IMAGE="${DOCKER_IMAGE:-ttionya/vaultwarden-backup:test}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-ghcr.io/sir106/vaultwarden-backup:test}"
 ERROR_NUM=0
 
 DATA_DIR="$(pwd)/tests/fixtures/source/bitwarden/data"
@@ -104,6 +104,7 @@ function test_result() {
 . tests/units/backup-cron/test.sh
 . tests/units/dashboard-admin-token/test.sh
 . tests/units/dashboard-recent-backups/test.sh
+. tests/units/backup-retention-gfs/test.sh
 
 if [[ "${ERROR_NUM}" == "0" ]]; then
     color green "All tests passed"

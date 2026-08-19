@@ -40,6 +40,8 @@ EOF
 }
 
 function start() {
+    color blue "Testing..."
+
     docker run --rm \
         --mount "type=bind,source=${TEST_OUTPUT_DIR},target=${REMOTE_DIR}" \
         --mount "type=bind,source=${PASSWORD2_FILE},target=/password2" \
@@ -51,6 +53,11 @@ function start() {
         -e "BACKUP_FILE_SUFFIX=test1" \
         "${DOCKER_IMAGE}" \
         backup
+    
+    7z t -p"${PASSWORD1}" "${BACKUP_FILE1}"
+    if [[ $? != 0 ]]; then
+        ((FAILED_NUM++))
+    fi
 
     docker run --rm \
         --mount "type=bind,source=${TEST_OUTPUT_DIR},target=${REMOTE_DIR}" \
@@ -63,6 +70,11 @@ function start() {
         "${DOCKER_IMAGE}" \
         backup
 
+    7z t -p"${PASSWORD2}" "${BACKUP_FILE2}"
+    if [[ $? != 0 ]]; then
+        ((FAILED_NUM++))
+    fi
+
     docker run --rm \
         --mount "type=bind,source=${TEST_OUTPUT_DIR},target=${REMOTE_DIR}" \
         --mount "type=bind,source=${PASSWORD2_FILE},target=/password2" \
@@ -73,6 +85,11 @@ function start() {
         "${DOCKER_IMAGE}" \
         backup
 
+    7z t -p"${PASSWORD3}" "${BACKUP_FILE3}"
+    if [[ $? != 0 ]]; then
+        ((FAILED_NUM++))
+    fi
+
     docker run --rm \
         --mount "type=bind,source=${TEST_OUTPUT_DIR},target=${REMOTE_DIR}" \
         --mount "type=bind,source=${PASSWORD2_FILE},target=/password2" \
@@ -82,27 +99,6 @@ function start() {
         -e "BACKUP_FILE_SUFFIX=test4" \
         "${DOCKER_IMAGE}" \
         backup
-}
-
-function test() {
-    color blue "Testing..."
-
-    ls -l "${TEST_OUTPUT_DIR}"
-
-    7z t -p"${PASSWORD1}" "${BACKUP_FILE1}"
-    if [[ $? != 0 ]]; then
-        ((FAILED_NUM++))
-    fi
-
-    7z t -p"${PASSWORD2}" "${BACKUP_FILE2}"
-    if [[ $? != 0 ]]; then
-        ((FAILED_NUM++))
-    fi
-
-    7z t -p"${PASSWORD3}" "${BACKUP_FILE3}"
-    if [[ $? != 0 ]]; then
-        ((FAILED_NUM++))
-    fi
 
     7z t -p"${PASSWORD4}" "${BACKUP_FILE4}"
     if [[ $? != 0 ]]; then
@@ -131,7 +127,6 @@ function cleanup() {
 
 prepare
 start
-test
 cleanup
 
 test_result "${TEST_NAME}" "${FAILED_NUM}"

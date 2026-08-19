@@ -9,7 +9,12 @@
 *.log
 *.log.*
 
-# Folders
-output/**
-extract/**
-tmp/**
+# Env
+.env
+*.env
+!.env.example
+
+# Test artifacts
+/extract/
+/output/
+/tmp/

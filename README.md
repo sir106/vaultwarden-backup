@@ -175,11 +175,11 @@ curl -H "X-Admin-Token: your-admin-token" "http://127.0.0.1:8080/cgi-bin/api/bac
 
 > **Important:** Restore will overwrite the existing files.
 
-You need to stop the Docker container before the restore.
+You need to stop the vaultwarden docker container before the restore.
 
-You also need to download the backup files to your local machine.
+You also need to download the backup files to your local (docker host) machine.
 
-Because the host's files are not accessible in the Docker container, you need to map the directory where the backup files that need to be restored are located to the docker container.
+Because the host's files are not accessible in the docker container, you need to map the directory where the backup files that need to be restored are located to the docker container.
 
 **And go to the directory where your backup files to be restored are located.**
 
@@ -190,7 +190,8 @@ docker run --rm -it \
   --mount type=volume,source=vaultwarden-data,target=/bitwarden/data/ \
   --mount type=bind,source=$(pwd),target=/bitwarden/restore/ \
   ttionya/vaultwarden-backup:latest restore \
-  [OPTIONS]
+  --zip-file /bitwarden/restore/<ZIP-FILE> \
+  -f
 ```
 
 If you are using "automatic backups", please confirm the vaultwarden volume and replace the `--mount` `source` section.
@@ -329,11 +330,20 @@ It should be noted that the password for vaultwarden is encrypted before it is s
 
 Default: `zip` (only support `zip` and `7z` formats)
 
-#### BACKUP_KEEP_DAYS
+#### BACKUP_KEEP_[DAYS/WEEKS/MONTHS/YEARS/LAST]
 
-Only keep last a few days backup files in the storage system. Set to `0` to keep all backup files.
+We follow a best-practice Grandfather-Father-Son (GFS) retention policy allowing flexible daily, weekly, monthly, yearly, and recent backup retention. Set all retention variables to `0` to keep all backup files (disable cleanup).
 
-Default: `0`
+- **`BACKUP_KEEP_DAYS`**: Keep 1 backup per day for the last X days with backups.
+  - Default: `7`
+- **`BACKUP_KEEP_WEEKS`**: Keep 1 backup per week (ISO week) for the last X weeks with backups.
+  - Default: `4`
+- **`BACKUP_KEEP_MONTHS`**: Keep 1 backup per month for the last X months with backups.
+  - Default: `12`
+- **`BACKUP_KEEP_YEARS`**: Keep 1 backup per year for the last X years with backups.
+  - Default: `3`
+- **`BACKUP_KEEP_LAST`**: Keep the last X backups regardless of date.
+  - Default: `0`
 
 #### BACKUP_FILE_SUFFIX
 
