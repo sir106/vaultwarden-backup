@@ -518,38 +518,39 @@ function init_env() {
             color yellow "DATA_DB: ${DATA_DB}"
         fi
 
-    color yellow "RCLONE_GLOBAL_FLAG: ${RCLONE_GLOBAL_FLAG}"
-    color yellow "ZIP_ENABLE: ${ZIP_ENABLE}"
-    color yellow "ZIP_PASSWORD: ${#ZIP_PASSWORD} Chars"
-    color yellow "ZIP_TYPE: ${ZIP_TYPE}"
-    color yellow "BACKUP_FILE_DATE_FORMAT: ${BACKUP_FILE_DATE_FORMAT} (example \"[filename].$(date +"${BACKUP_FILE_DATE_FORMAT}").[ext]\")"
-    color yellow "BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS}"
-    color yellow "BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS}"
-    color yellow "BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS}"
-    color yellow "BACKUP_KEEP_YEARS: ${BACKUP_KEEP_YEARS}"
-    color yellow "BACKUP_KEEP_LAST: ${BACKUP_KEEP_LAST}"
-    if [[ -n "${PING_URL}" ]]; then
-        color yellow "PING_URL: curl${PING_URL_CURL_OPTIONS:+" ${PING_URL_CURL_OPTIONS}"} \"${PING_URL}\""
-    fi
-    if [[ -n "${PING_URL_WHEN_START}" ]]; then
-        color yellow "PING_URL_WHEN_START: curl${PING_URL_WHEN_START_CURL_OPTIONS:+" ${PING_URL_WHEN_START_CURL_OPTIONS}"} \"${PING_URL_WHEN_START}\""
-    fi
-    if [[ -n "${PING_URL_WHEN_SUCCESS}" ]]; then
-        color yellow "PING_URL_WHEN_SUCCESS: curl${PING_URL_WHEN_SUCCESS_CURL_OPTIONS:+" ${PING_URL_WHEN_SUCCESS_CURL_OPTIONS}"} \"${PING_URL_WHEN_SUCCESS}\""
-    fi
-    if [[ -n "${PING_URL_WHEN_FAILURE}" ]]; then
-        color yellow "PING_URL_WHEN_FAILURE: curl${PING_URL_WHEN_FAILURE_CURL_OPTIONS:+" ${PING_URL_WHEN_FAILURE_CURL_OPTIONS}"} \"${PING_URL_WHEN_FAILURE}\""
-    fi
-    color yellow "MAIL_SMTP_ENABLE: ${MAIL_SMTP_ENABLE}"
-    if [[ "${MAIL_SMTP_ENABLE}" == "TRUE" ]]; then
-        color yellow "MAIL_TO: ${MAIL_TO}"
-        color yellow "MAIL_WHEN_SUCCESS: ${MAIL_WHEN_SUCCESS}"
-        color yellow "MAIL_WHEN_FAILURE: ${MAIL_WHEN_FAILURE}"
-        if [[ "${MAIL_USE_THREAD}" == "TRUE" ]]; then
-            if [[ -n "${MAIL_PARENT_MESSAGE_ID}" ]]; then
-                color yellow "MAIL_PARENT_MESSAGE_ID: ${MAIL_PARENT_MESSAGE_ID}"
-            else
-                color yellow "MAIL_MESSAGE_ID: auto generate"
+        color yellow "RCLONE_GLOBAL_FLAG: ${RCLONE_GLOBAL_FLAG}"
+        color yellow "ZIP_ENABLE: ${ZIP_ENABLE}"
+        color yellow "ZIP_PASSWORD: ${#ZIP_PASSWORD} Chars"
+        color yellow "ZIP_TYPE: ${ZIP_TYPE}"
+        color yellow "BACKUP_FILE_DATE_FORMAT: ${BACKUP_FILE_DATE_FORMAT} (example \"[filename].$(date +"${BACKUP_FILE_DATE_FORMAT}").[ext]\")"
+        color yellow "BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS}"
+        color yellow "BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS}"
+        color yellow "BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS}"
+        color yellow "BACKUP_KEEP_YEARS: ${BACKUP_KEEP_YEARS}"
+        color yellow "BACKUP_KEEP_LAST: ${BACKUP_KEEP_LAST}"
+        if [[ -n "${PING_URL}" ]]; then
+            color yellow "PING_URL: curl${PING_URL_CURL_OPTIONS:+" ${PING_URL_CURL_OPTIONS}"} \"${PING_URL}\""
+        fi
+        if [[ -n "${PING_URL_WHEN_START}" ]]; then
+            color yellow "PING_URL_WHEN_START: curl${PING_URL_WHEN_START_CURL_OPTIONS:+" ${PING_URL_WHEN_START_CURL_OPTIONS}"} \"${PING_URL_WHEN_START}\""
+        fi
+        if [[ -n "${PING_URL_WHEN_SUCCESS}" ]]; then
+            color yellow "PING_URL_WHEN_SUCCESS: curl${PING_URL_WHEN_SUCCESS_CURL_OPTIONS:+" ${PING_URL_WHEN_SUCCESS_CURL_OPTIONS}"} \"${PING_URL_WHEN_SUCCESS}\""
+        fi
+        if [[ -n "${PING_URL_WHEN_FAILURE}" ]]; then
+            color yellow "PING_URL_WHEN_FAILURE: curl${PING_URL_WHEN_FAILURE_CURL_OPTIONS:+" ${PING_URL_WHEN_FAILURE_CURL_OPTIONS}"} \"${PING_URL_WHEN_FAILURE}\""
+        fi
+        color yellow "MAIL_SMTP_ENABLE: ${MAIL_SMTP_ENABLE}"
+        if [[ "${MAIL_SMTP_ENABLE}" == "TRUE" ]]; then
+            color yellow "MAIL_TO: ${MAIL_TO}"
+            color yellow "MAIL_WHEN_SUCCESS: ${MAIL_WHEN_SUCCESS}"
+            color yellow "MAIL_WHEN_FAILURE: ${MAIL_WHEN_FAILURE}"
+            if [[ "${MAIL_USE_THREAD}" == "TRUE" ]]; then
+                if [[ -n "${MAIL_PARENT_MESSAGE_ID}" ]]; then
+                    color yellow "MAIL_PARENT_MESSAGE_ID: ${MAIL_PARENT_MESSAGE_ID}"
+                else
+                    color yellow "MAIL_MESSAGE_ID: auto generate"
+                fi
             fi
         fi
         color yellow "DASHBOARD_ENABLE: ${DASHBOARD_ENABLE}"
