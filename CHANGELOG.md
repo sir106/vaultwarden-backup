@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.28.0 (20260819)
+
+### Feature
+
+- Add built-in dashboard UI and API for reviewing recent remote backup activities
+- Add guided restore workflow from dashboard (`dry-run`, `execute`, `status`)
+- Protect dashboard access with Vaultwarden `ADMIN_TOKEN` / `VAULTWARDEN_ADMIN_TOKEN`
+
+<br>
+
 ## v1.27.0 (20260804)
 
 ### Feature

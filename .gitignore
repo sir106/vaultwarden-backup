@@ -8,3 +8,8 @@
 # Log
 *.log
 *.log.*
+
+# Folders
+output/**
+extract/**
+tests/**

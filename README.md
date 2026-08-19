@@ -31,6 +31,8 @@ And the following ways of notifying backup results are supported.
 - Ping (send on completion, start, success, or failure)
 - Mail (SMTP based, send on success and on failure)
 
+This tool also provides a lightweight dashboard for reviewing recent remote backup activities and starting guided restore tasks.
+
 <br>
 
 
@@ -124,6 +126,45 @@ docker run -d \
   --mount type=volume,source=vaultwarden-rclone-data,target=/config/ \
   -e DATA_DIR="/data" \
   ttionya/vaultwarden-backup:latest
+```
+
+<br>
+
+
+
+### Dashboard
+
+You can enable a lightweight dashboard in the backup container.
+
+The dashboard supports:
+
+- Review recent backup files from rclone remotes
+- Validate restore input using a dry-run endpoint
+- Start a restore from a selected backup file and inspect restore status
+
+By default, the dashboard listens on `0.0.0.0:8080` and uses `ADMIN_TOKEN` authentication from Vaultwarden. You can pass the token using `ADMIN_TOKEN`, `ADMIN_TOKEN_FILE`, `VAULTWARDEN_ADMIN_TOKEN`, or `VAULTWARDEN_ADMIN_TOKEN_FILE`.
+
+Example:
+
+```shell
+docker run -d \
+  --restart=always \
+  --name vaultwarden_backup \
+  --volumes-from=vaultwarden \
+  --mount type=volume,source=vaultwarden-rclone-data,target=/config/ \
+  -p 127.0.0.1:8080:8080 \
+  -e DATA_DIR="/data" \
+  -e DASHBOARD_ENABLE="TRUE" \
+  -e ADMIN_TOKEN="your-admin-token" \
+  ttionya/vaultwarden-backup:latest
+```
+
+Open `http://127.0.0.1:8080/cgi-bin/ui` and use your `ADMIN_TOKEN` in the dashboard page.
+
+You can also call API endpoints directly with header `X-Admin-Token: <ADMIN_TOKEN>`:
+
+```shell
+curl -H "X-Admin-Token: your-admin-token" "http://127.0.0.1:8080/cgi-bin/api/backups/recent?limit=20"
 ```
 
 <br>
@@ -321,6 +362,34 @@ A custom name to identify your vaultwarden instance in notifications and logs.
 This doesn't affect functionality, it only affects the display in the notification title and partial log output.
 
 Default: `vaultwarden`
+
+#### DASHBOARD_ENABLE
+
+Enable the built-in dashboard service.
+
+Default: `FALSE`
+
+#### DASHBOARD_BIND_ADDR
+
+The bind address for dashboard service.
+
+Default: `0.0.0.0`
+
+#### DASHBOARD_PORT
+
+The listen port for dashboard service.
+
+Default: `8080`
+
+#### ADMIN_TOKEN / VAULTWARDEN_ADMIN_TOKEN
+
+Admin token used to access dashboard UI and API endpoints.
+
+`VAULTWARDEN_ADMIN_TOKEN` has priority, and if it is empty, `ADMIN_TOKEN` will be used.
+
+These variables also support `_FILE` variants via the existing secret file mechanism.
+
+Default: `''` (required when `DASHBOARD_ENABLE=TRUE`)
 
 #### DATA_DIR
 
@@ -548,7 +617,7 @@ MY_ENV="example1"
 MY_ENV_FILE="/path/to/example2"
 
 # For 3 (.env file)
-MY_ENV_FILE="/path/to/example3" 
+MY_ENV_FILE="/path/to/example3"
 
 # For 4 (.env file)
 MY_ENV="example4"
