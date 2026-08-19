@@ -11,7 +11,7 @@ The backup container provides a lightweight dashboard for:
 Set these environment variables in the backup container:
 
 - `DASHBOARD_ENABLE=TRUE`
-- `ADMIN_TOKEN=<vaultwarden admin token>`
+- `ADMIN_TOKEN=<vaultwarden admin token or argon2 hash>`
 
 Optional:
 
@@ -27,7 +27,7 @@ Open:
 
 - `http://<host>:8080/` or `http://<host>:8080/cgi-bin/ui`
 
-The web dashboard interface allows entering your `ADMIN_TOKEN` (which can be saved to browser storage) to authenticate API requests.
+The web dashboard interface allows entering your plain-text `ADMIN_TOKEN` (which can be saved to browser storage) to authenticate API requests. If `ADMIN_TOKEN` / `VAULTWARDEN_ADMIN_TOKEN` is configured as a Vaultwarden Argon2 hash (`$argon2id$...`, `$argon2i$...`), the dashboard verifies the plain-text password against the hash using Argon2.
 
 ## API
 

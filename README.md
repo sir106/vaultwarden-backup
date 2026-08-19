@@ -142,7 +142,7 @@ The dashboard supports:
 - Validate restore input using a dry-run endpoint
 - Start a restore from a selected backup file and inspect restore status
 
-By default, the dashboard listens on `0.0.0.0:8080` and uses `ADMIN_TOKEN` authentication from Vaultwarden. You can pass the token using `ADMIN_TOKEN`, `ADMIN_TOKEN_FILE`, `VAULTWARDEN_ADMIN_TOKEN`, or `VAULTWARDEN_ADMIN_TOKEN_FILE`.
+By default, the dashboard listens on `0.0.0.0:8080` and uses `ADMIN_TOKEN` authentication from Vaultwarden. You can pass the token using `ADMIN_TOKEN`, `ADMIN_TOKEN_FILE`, `VAULTWARDEN_ADMIN_TOKEN`, or `VAULTWARDEN_ADMIN_TOKEN_FILE`. It supports both plain-text tokens and Vaultwarden's Argon2 hashes (`$argon2id$...`, `$argon2i$...`).
 
 Example:
 
@@ -155,11 +155,11 @@ docker run -d \
   -p 127.0.0.1:8080:8080 \
   -e DATA_DIR="/data" \
   -e DASHBOARD_ENABLE="TRUE" \
-  -e ADMIN_TOKEN="your-admin-token" \
+  -e ADMIN_TOKEN="your-admin-token-or-argon2-hash" \
   ttionya/vaultwarden-backup:latest
 ```
 
-Open `http://127.0.0.1:8080/cgi-bin/ui` and use your `ADMIN_TOKEN` in the dashboard page.
+Open `http://127.0.0.1:8080/cgi-bin/ui` and enter your plain-text `ADMIN_TOKEN` in the dashboard page (even when an Argon2 hash is configured in the environment).
 
 You can also call API endpoints directly with header `X-Admin-Token: <ADMIN_TOKEN>`:
 
@@ -383,7 +383,7 @@ Default: `8080`
 
 #### ADMIN_TOKEN / VAULTWARDEN_ADMIN_TOKEN
 
-Admin token used to access dashboard UI and API endpoints.
+Admin token used to access dashboard UI and API endpoints. Supports both plain-text tokens and Vaultwarden Argon2 hashes (`$argon2id$...`, `$argon2i$...`). If an Argon2 hash is configured in the environment, the dashboard verifies the plain-text password entered in the frontend or API headers against the hash.
 
 `VAULTWARDEN_ADMIN_TOKEN` has priority, and if it is empty, `ADMIN_TOKEN` will be used.
 

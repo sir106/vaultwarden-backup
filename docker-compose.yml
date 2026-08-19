@@ -17,6 +17,10 @@ services:
     image: ttionya/vaultwarden-backup:latest
     restart: always
     # environment:
+    #   DASHBOARD_ENABLE: 'FALSE'
+    #   DASHBOARD_BIND_ADDR: '0.0.0.0'
+    #   DASHBOARD_PORT: 8080
+    #   ADMIN_TOKEN: 'your authentication token'
     #   RCLONE_REMOTE_NAME: 'BitwardenBackup'
     #   RCLONE_REMOTE_DIR: '/BitwardenBackup/'
     #   RCLONE_GLOBAL_FLAG: ''
@@ -41,6 +45,8 @@ services:
     #   MAIL_WHEN_FAILURE: 'TRUE'
     #   MAIL_FORCE_THREAD: 'FALSE'
     #   TIMEZONE: 'UTC'
+    ports:
+      - '127.0.0.1:8080:8080'
     volumes:
       - vaultwarden-data:/bitwarden/data/
       - vaultwarden-rclone-data:/config/
