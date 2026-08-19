@@ -1178,23 +1178,23 @@ EOF
 function start_dashboard() {
     init_env
 
-    if [[ "${DASHBOARD_ENABLE}" != "TRUE" && "$1" != "--force" ]]; then
+    if [[ "${BACKUP_DASHBOARD_ENABLE}" != "TRUE" && "$1" != "--force" ]]; then
         color yellow "dashboard is disabled, skipping"
         return
     fi
 
-    if [[ -z "${DASHBOARD_ADMIN_TOKEN}" ]]; then
+    if [[ -z "${BACKUP_DASHBOARD_ADMIN_TOKEN}" ]]; then
         color red "dashboard requires BACKUP_DASHBOARD_ADMIN_TOKEN"
         exit 1
     fi
 
     prepare_dashboard_webroot
 
-    color blue "starting dashboard at http://${DASHBOARD_BIND_ADDR}:${DASHBOARD_PORT}/cgi-bin/ui"
-    if [[ "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
-        color yellow "dashboard auth mode: Argon2 hash (${#DASHBOARD_ADMIN_TOKEN} chars) - enter your plain password in the frontend UI"
+    color blue "starting dashboard at http://${BACKUP_DASHBOARD_BIND_ADDR}:${BACKUP_DASHBOARD_PORT}/cgi-bin/ui"
+    if [[ "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
+        color yellow "dashboard auth mode: Argon2 hash (${#BACKUP_DASHBOARD_ADMIN_TOKEN} chars) - enter your plain password in the frontend UI"
     else
-        color yellow "dashboard auth mode: Plain password (${#DASHBOARD_ADMIN_TOKEN} chars)"
+        color yellow "dashboard auth mode: Plain password (${#BACKUP_DASHBOARD_ADMIN_TOKEN} chars)"
     fi
 
     # Create a Python CGI HTTP server launcher
