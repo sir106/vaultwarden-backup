@@ -422,6 +422,7 @@ function init_env() {
     init_env_display
     init_env_ping
     init_env_mail
+    init_env_dashboard
 
     # CRON
     get_env CRON
@@ -499,30 +500,23 @@ function init_env() {
         TIMEZONE="UTC"
     fi
 
-    color yellow "========================================"
-    color yellow "DATA_DIR: ${DATA_DIR}"
-    color yellow "DATA_CONFIG: ${DATA_CONFIG}"
-    color yellow "DATA_RSAKEY: ${DATA_RSAKEY}"
-    color yellow "DATA_ATTACHMENTS: ${DATA_ATTACHMENTS}"
-    color yellow "DATA_SENDS: ${DATA_SENDS}"
-    color yellow "========================================"
-    color yellow "DB_TYPE: ${DB_TYPE}"
+    if [[ "${INIT_ENV_LOG}" != "FALSE" ]]; then
+        color yellow "========================================"
+        color yellow "DATA_DIR: ${DATA_DIR}"
+        color yellow "DATA_CONFIG: ${DATA_CONFIG}"
+        color yellow "DATA_RSAKEY: ${DATA_RSAKEY}"
+        color yellow "DATA_ATTACHMENTS: ${DATA_ATTACHMENTS}"
+        color yellow "DATA_SENDS: ${DATA_SENDS}"
+        color yellow "========================================"
+        color yellow "DB_TYPE: ${DB_TYPE}"
 
-    if [[ "${DB_TYPE}" == "POSTGRESQL" ]]; then
-        color yellow "DB_URL: postgresql://${PG_USERNAME}:***(${#PG_PASSWORD} Chars)@${PG_HOST}:${PG_PORT}/${PG_DBNAME}"
-    elif [[ "${DB_TYPE}" == "MYSQL" ]]; then
-        color yellow "DB_URL: mysql://${MYSQL_USERNAME}:***(${#MYSQL_PASSWORD} Chars)@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
-    else
-        color yellow "DATA_DB: ${DATA_DB}"
-    fi
-
-    color yellow "========================================"
-    color yellow "CRON: ${CRON}"
-
-    for RCLONE_REMOTE_X in "${RCLONE_REMOTE_LIST[@]}"
-    do
-        color yellow "RCLONE_REMOTE: ${RCLONE_REMOTE_X}"
-    done
+        if [[ "${DB_TYPE}" == "POSTGRESQL" ]]; then
+            color yellow "DB_URL: postgresql://${PG_USERNAME}:***(${#PG_PASSWORD} Chars)@${PG_HOST}:${PG_PORT}/${PG_DBNAME}"
+        elif [[ "${DB_TYPE}" == "MYSQL" ]]; then
+            color yellow "DB_URL: mysql://${MYSQL_USERNAME}:***(${#MYSQL_PASSWORD} Chars)@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
+        else
+            color yellow "DATA_DB: ${DATA_DB}"
+        fi
 
     color yellow "RCLONE_GLOBAL_FLAG: ${RCLONE_GLOBAL_FLAG}"
     color yellow "ZIP_ENABLE: ${ZIP_ENABLE}"
@@ -558,10 +552,16 @@ function init_env() {
                 color yellow "MAIL_MESSAGE_ID: auto generate"
             fi
         fi
+        color yellow "DASHBOARD_ENABLE: ${DASHBOARD_ENABLE}"
+        if [[ "${DASHBOARD_ENABLE}" == "TRUE" ]]; then
+            color yellow "DASHBOARD_BIND_ADDR: ${DASHBOARD_BIND_ADDR}"
+            color yellow "DASHBOARD_PORT: ${DASHBOARD_PORT}"
+            color yellow "ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars"
+        fi
+        color yellow "TIMEZONE: ${TIMEZONE}"
+        color yellow "DISPLAY_NAME: ${DISPLAY_NAME}"
+        color yellow "========================================"
     fi
-    color yellow "TIMEZONE: ${TIMEZONE}"
-    color yellow "DISPLAY_NAME: ${DISPLAY_NAME}"
-    color yellow "========================================"
 }
 
 function init_env_dir() {
@@ -750,5 +750,33 @@ function init_env_mail() {
         MAIL_USE_THREAD="TRUE"
     else
         MAIL_PARENT_MESSAGE_ID=""
+    fi
+}
+
+function init_env_dashboard() {
+    # DASHBOARD_ENABLE
+    get_env DASHBOARD_ENABLE
+    if [[ "${DASHBOARD_ENABLE^^}" == "TRUE" ]]; then
+        DASHBOARD_ENABLE="TRUE"
+    else
+        DASHBOARD_ENABLE="FALSE"
+    fi
+
+    # DASHBOARD_BIND_ADDR
+    get_env DASHBOARD_BIND_ADDR
+    DASHBOARD_BIND_ADDR="${DASHBOARD_BIND_ADDR:-"0.0.0.0"}"
+
+    # DASHBOARD_PORT
+    get_env DASHBOARD_PORT
+    DASHBOARD_PORT="${DASHBOARD_PORT:-"8080"}"
+
+    # ADMIN_TOKEN
+    # Reuse Vaultwarden ADMIN_TOKEN when available.
+    get_env VAULTWARDEN_ADMIN_TOKEN
+    if [[ -z "${VAULTWARDEN_ADMIN_TOKEN}" ]]; then
+        get_env ADMIN_TOKEN
+        DASHBOARD_ADMIN_TOKEN="${ADMIN_TOKEN}"
+    else
+        DASHBOARD_ADMIN_TOKEN="${VAULTWARDEN_ADMIN_TOKEN}"
     fi
 }

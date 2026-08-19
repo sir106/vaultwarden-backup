@@ -50,6 +50,15 @@ if [[ "$1" == "restore" ]]; then
     exit 0
 fi
 
+# dashboard
+if [[ "$1" == "dashboard" ]]; then
+    . /app/dashboard.sh
+
+    start_dashboard --force
+
+    exit 0
+fi
+
 function configure_timezone() {
     ln -sf "/usr/share/zoneinfo/${TIMEZONE}" "${LOCALTIME_FILE}"
 }
@@ -66,6 +75,13 @@ check_rclone_connection all
 configure_postgresql
 configure_timezone
 configure_cron
+
+# start dashboard service when enabled
+if [[ "${DASHBOARD_ENABLE}" == "TRUE" ]]; then
+    . /app/dashboard.sh
+
+    start_dashboard &
+fi
 
 # backup manually
 if [[ "$1" == "backup" ]]; then
