@@ -77,7 +77,7 @@ configure_timezone
 configure_cron
 
 # start dashboard service when enabled
-if [[ "${DASHBOARD_ENABLE}" == "TRUE" ]]; then
+if [[ "${BACKUP_DASHBOARD_ENABLE}" == "TRUE" ]]; then
     . /app/dashboard.sh
 
     start_dashboard &
