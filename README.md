@@ -142,7 +142,7 @@ The dashboard supports:
 - Validate restore input using a dry-run endpoint
 - Start a restore from a selected backup file and inspect restore status
 
-By default, the dashboard listens on `0.0.0.0:8080` and uses admin token authentication. You can pass the token using `BACKUP_DASHBOARD_ADMIN_TOKEN` (or `ADMIN_TOKEN`, `VAULTWARDEN_ADMIN_TOKEN`, and their `_FILE` variants). It supports both plain-text tokens and Vaultwarden's Argon2 hashes (`$argon2id$...`, `$argon2i$...`).
+By default, the dashboard listens on `0.0.0.0:8080` and uses `BACKUP_DASHBOARD_ADMIN_TOKEN` authentication. You can pass the token using `BACKUP_DASHBOARD_ADMIN_TOKEN` or `BACKUP_DASHBOARD_ADMIN_TOKEN_FILE`. It supports both plain-text tokens and Vaultwarden's Argon2 hashes (`$argon2id$...`, `$argon2i$...`).
 
 Example:
 
@@ -159,7 +159,7 @@ docker run -d \
   ttionya/vaultwarden-backup:latest
 ```
 
-Open `http://127.0.0.1:8080/cgi-bin/ui` and enter your plain-text `ADMIN_TOKEN` in the dashboard page (even when an Argon2 hash is configured in the environment).
+Open `http://127.0.0.1:8080/cgi-bin/ui` and enter your plain-text admin token in the dashboard page (even when an Argon2 hash is configured in the environment).
 
 You can also call API endpoints directly with header `X-Admin-Token: <ADMIN_TOKEN>`:
 
@@ -363,31 +363,29 @@ This doesn't affect functionality, it only affects the display in the notificati
 
 Default: `vaultwarden`
 
-#### BACKUP_DASHBOARD_ENABLE / DASHBOARD_ENABLE
+#### BACKUP_DASHBOARD_ENABLE
 
 Enable the built-in dashboard service.
 
 Default: `FALSE`
 
-#### BACKUP_DASHBOARD_BIND_ADDR / DASHBOARD_BIND_ADDR
+#### BACKUP_DASHBOARD_BIND_ADDR
 
 The bind address for dashboard service.
 
 Default: `0.0.0.0`
 
-#### BACKUP_DASHBOARD_PORT / DASHBOARD_PORT
+#### BACKUP_DASHBOARD_PORT
 
 The listen port for dashboard service.
 
 Default: `8080`
 
-#### BACKUP_DASHBOARD_ADMIN_TOKEN / ADMIN_TOKEN / VAULTWARDEN_ADMIN_TOKEN
+#### BACKUP_DASHBOARD_ADMIN_TOKEN
 
 Admin token used to access dashboard UI and API endpoints. Supports both plain-text tokens and Vaultwarden Argon2 hashes (`$argon2id$...`, `$argon2i$...`). If an Argon2 hash is configured in the environment, the dashboard verifies the plain-text password entered in the frontend or API headers against the hash.
 
-`BACKUP_DASHBOARD_ADMIN_TOKEN` has priority, followed by `VAULTWARDEN_ADMIN_TOKEN` and `ADMIN_TOKEN`.
-
-These variables also support `_FILE` variants via the existing secret file mechanism.
+This variable also supports the `_FILE` variant (`BACKUP_DASHBOARD_ADMIN_TOKEN_FILE`) via the existing secret file mechanism.
 
 Default: `''` (required when `BACKUP_DASHBOARD_ENABLE=TRUE`)
 

@@ -1184,7 +1184,7 @@ function start_dashboard() {
     fi
 
     if [[ -z "${DASHBOARD_ADMIN_TOKEN}" ]]; then
-        color red "dashboard requires BACKUP_DASHBOARD_ADMIN_TOKEN, ADMIN_TOKEN, or VAULTWARDEN_ADMIN_TOKEN"
+        color red "dashboard requires BACKUP_DASHBOARD_ADMIN_TOKEN"
         exit 1
     fi
 
