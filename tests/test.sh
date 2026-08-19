@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-DOCKER_IMAGE="ttionya/vaultwarden-backup:test"
+DOCKER_IMAGE="${DOCKER_IMAGE:-ttionya/vaultwarden-backup:test}"
 ERROR_NUM=0
 
 DATA_DIR="$(pwd)/tests/fixtures/source/bitwarden/data"
