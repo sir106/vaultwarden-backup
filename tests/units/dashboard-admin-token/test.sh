@@ -95,6 +95,54 @@ function test() {
     fi
 }
 
+function test_argon2() {
+    color blue "Testing Argon2 hashed ADMIN_TOKEN..."
+    local ARGON2_CONTAINER="${TEST_CONTAINER_NAME}_argon2"
+    local ARGON2_HASH='$argon2id$v=19$m=65536,t=3,p=4$c29tZXNhbHQ$RdescudvJCsgqlrqrcrcChWqK/2vd+mdRtExGJaFDIs'
+    local PLAIN_PASS="password"
+
+    docker rm -f "${ARGON2_CONTAINER}" > /dev/null 2>&1 || true
+
+    docker run -d \
+        --name "${ARGON2_CONTAINER}" \
+        --mount "type=bind,source=${TEST_OUTPUT_DIR},target=${REMOTE_DIR}" \
+        --mount "type=bind,source=${DATA_DIR},target=/bitwarden/data/" \
+        --mount "type=bind,source=${TEST_CONFIG_DIR},target=/root/.config/rclone/" \
+        -e "RCLONE_REMOTE_DIR=${REMOTE_DIR}" \
+        -e "DASHBOARD_ENABLE=TRUE" \
+        -e "ADMIN_TOKEN=${ARGON2_HASH}" \
+        -e "CRON=0 0 31 2 *" \
+        "${DOCKER_IMAGE}"
+
+    local RETRY=0
+    while [[ ${RETRY} -lt 15 ]]; do
+        if docker exec "${ARGON2_CONTAINER}" curl -s "http://127.0.0.1:8080/cgi-bin/ui" > /dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+        ((RETRY++))
+    done
+
+    # 1. Valid plaintext password against Argon2 hash
+    local ARGON_AUTH_CODE
+    ARGON_AUTH_CODE="$(docker exec "${ARGON2_CONTAINER}" curl -s -o /dev/null -w "%{http_code}" -H "X-Admin-Token: ${PLAIN_PASS}" "http://127.0.0.1:8080/cgi-bin/api/backups/recent")"
+    if [[ "${ARGON_AUTH_CODE}" != "200" ]]; then
+        color red "Argon2 plaintext auth failed (expected 200, got ${ARGON_AUTH_CODE})"
+        ((FAILED_NUM++))
+    fi
+
+    # 2. Invalid password against Argon2 hash
+    local ARGON_WRONG_CODE
+    ARGON_WRONG_CODE="$(docker exec "${ARGON2_CONTAINER}" curl -s -o /dev/null -w "%{http_code}" -H "X-Admin-Token: wrongpassword" "http://127.0.0.1:8080/cgi-bin/api/backups/recent")"
+    if [[ "${ARGON_WRONG_CODE}" != "401" ]]; then
+        color red "Argon2 wrong password test failed (expected 401, got ${ARGON_WRONG_CODE})"
+        ((FAILED_NUM++))
+    fi
+
+    docker stop "${ARGON2_CONTAINER}" > /dev/null 2>&1
+    docker rm "${ARGON2_CONTAINER}" > /dev/null 2>&1
+}
+
 function cleanup() {
     docker stop "${TEST_CONTAINER_NAME}" > /dev/null 2>&1
     docker rm "${TEST_CONTAINER_NAME}" > /dev/null 2>&1
@@ -111,6 +159,7 @@ function cleanup() {
 prepare
 start
 test
+test_argon2
 cleanup
 
 test_result "dashboard-admin-token" "${FAILED_NUM}"

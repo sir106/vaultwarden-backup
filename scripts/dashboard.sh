@@ -111,6 +111,38 @@ function append_activity_log() {
     } >> "${DASHBOARD_ACTIVITY_LOG}" 2> /dev/null || true
 }
 
+function check_admin_token_match() {
+    local PROVIDED="$1"
+    local STORED="$2"
+
+    if [[ -z "${PROVIDED}" || -z "${STORED}" ]]; then
+        return 1
+    fi
+
+    # Exact match (for plain text token or direct hash match)
+    if [[ "${PROVIDED}" == "${STORED}" ]]; then
+        return 0
+    fi
+
+    # If STORED is an Argon2 PHC hash ($argon2id$, $argon2i$, $argon2d$)
+    if [[ "${STORED}" =~ ^\$argon2 ]]; then
+        if python3 -c '
+import sys
+try:
+    import argon2
+    ph = argon2.PasswordHasher()
+    ph.verify(sys.argv[1], sys.argv[2])
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+' "${STORED}" "${PROVIDED}" 2> /dev/null; then
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 function require_admin_token() {
     local PROVIDED_TOKEN=""
 
@@ -125,7 +157,7 @@ function require_admin_token() {
         return 1
     fi
 
-    if [[ "${PROVIDED_TOKEN}" != "${DASHBOARD_ADMIN_TOKEN}" ]]; then
+    if ! check_admin_token_match "${PROVIDED_TOKEN}" "${DASHBOARD_ADMIN_TOKEN}"; then
         append_activity_log "auth_rejected" "invalid or missing token"
         return 1
     fi
