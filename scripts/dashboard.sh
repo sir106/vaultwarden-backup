@@ -119,6 +119,18 @@ function check_admin_token_match() {
         return 1
     fi
 
+    # Trim leading/trailing whitespace
+    PROVIDED="$(echo -n "${PROVIDED}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    STORED="$(echo -n "${STORED}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+    # Strip surrounding single or double quotes if present (e.g. ADMIN_TOKEN='$argon2id$...')
+    if [[ "${STORED}" =~ ^\'(.*)\'$ || "${STORED}" =~ ^\"(.*)\"$ ]]; then
+        STORED="${BASH_REMATCH[1]}"
+    fi
+
+    # Unescape double $$ if configured in docker-compose YAML
+    STORED="${STORED//\$\$/\$}"
+
     # Exact match (for plain text token or direct hash match)
     if [[ "${PROVIDED}" == "${STORED}" ]]; then
         return 0
@@ -130,9 +142,15 @@ function check_admin_token_match() {
 import sys
 try:
     import argon2
-    ph = argon2.PasswordHasher()
-    ph.verify(sys.argv[1], sys.argv[2])
-    sys.exit(0)
+    stored = sys.argv[1]
+    provided = sys.argv[2]
+    try:
+        ph = argon2.PasswordHasher()
+        ph.verify(stored, provided)
+        sys.exit(0)
+    except Exception:
+        argon2.low_level.verify_secret(stored.encode("ascii"), provided.encode("utf-8"), argon2.Type.ID)
+        sys.exit(0)
 except Exception:
     sys.exit(1)
 ' "${STORED}" "${PROVIDED}" 2> /dev/null; then
