@@ -466,12 +466,12 @@ function init_env() {
         if [[ "${BACKUP_DASHBOARD_ENABLE}" == "TRUE" ]]; then
             color yellow "BACKUP_DASHBOARD_BIND_ADDR: ${BACKUP_DASHBOARD_BIND_ADDR}"
             color yellow "BACKUP_DASHBOARD_PORT: ${BACKUP_DASHBOARD_PORT}"
-            if [[ -z "${DASHBOARD_ADMIN_TOKEN}" ]]; then
+            if [[ -z "${BACKUP_DASHBOARD_ADMIN_TOKEN}" ]]; then
                 color red "BACKUP_DASHBOARD_ADMIN_TOKEN: [EMPTY] (Warning: Token is empty. Dashboard authentication will fail!)"
-            elif [[ "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
-                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars (Argon2 hash detected - enter your plain password in the frontend UI)"
+            elif [[ "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${BACKUP_DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
+                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#BACKUP_DASHBOARD_ADMIN_TOKEN} Chars (Argon2 hash detected - enter your plain password in the frontend UI)"
             else
-                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars (Plain password detected)"
+                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#BACKUP_DASHBOARD_ADMIN_TOKEN} Chars (Plain password detected)"
             fi
         fi
         color yellow "TIMEZONE: ${TIMEZONE}"

@@ -170,12 +170,12 @@ function require_admin_token() {
         PROVIDED_TOKEN="${BASH_REMATCH[1]}"
     fi
 
-    if [[ -z "${DASHBOARD_ADMIN_TOKEN}" ]]; then
+    if [[ -z "${BACKUP_DASHBOARD_ADMIN_TOKEN}" ]]; then
         append_activity_log "auth_rejected" "admin token is not configured"
         return 1
     fi
 
-    if ! check_admin_token_match "${PROVIDED_TOKEN}" "${DASHBOARD_ADMIN_TOKEN}"; then
+    if ! check_admin_token_match "${PROVIDED_TOKEN}" "${BACKUP_DASHBOARD_ADMIN_TOKEN}"; then
         append_activity_log "auth_rejected" "invalid or missing token"
         return 1
     fi
@@ -788,7 +788,7 @@ cat <<'EOF'
     <div class="card">
       <div class="card-title">🔑 Authentication</div>
       <div class="auth-bar">
-        <input id="tokenInput" type="password" class="flex-1" placeholder="Enter Vaultwarden ADMIN_TOKEN" />
+        <input id="tokenInput" type="password" class="flex-1" placeholder="Enter BACKUP_DASHBOARD_ADMIN_TOKEN" />
         <button id="saveTokenBtn" class="secondary">Save Token</button>
         <button id="clearTokenBtn" class="secondary">Clear</button>
         <button id="loadBackupsBtn">🔄 Load Backups</button>
@@ -812,7 +812,7 @@ cat <<'EOF'
           <tbody id="backupRows">
             <tr>
               <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 24px;">
-                Enter your ADMIN_TOKEN above and click "Load Backups".
+                Enter your BACKUP_DASHBOARD_ADMIN_TOKEN above and click "Load Backups".
               </td>
             </tr>
           </tbody>
@@ -924,7 +924,7 @@ cat <<'EOF'
     async function loadBackups() {
       const token = getToken();
       if (!token) {
-        alert('Please enter an ADMIN_TOKEN first.');
+        alert('Please enter your BACKUP_DASHBOARD_ADMIN_TOKEN first.');
         return;
       }
 
@@ -1330,8 +1330,8 @@ PYEOF
     chmod +x "${CGI_SERVER_SCRIPT}"
 
     export WWW_ROOT="${DASHBOARD_WWW_DIR}"
-    export BIND_ADDR="${DASHBOARD_BIND_ADDR}"
-    export PORT="${DASHBOARD_PORT}"
+    export BIND_ADDR="${BACKUP_DASHBOARD_BIND_ADDR}"
+    export PORT="${BACKUP_DASHBOARD_PORT}"
 
     exec python3 "${CGI_SERVER_SCRIPT}"
 }
