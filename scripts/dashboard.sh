@@ -1191,6 +1191,11 @@ function start_dashboard() {
     prepare_dashboard_webroot
 
     color blue "starting dashboard at http://${DASHBOARD_BIND_ADDR}:${DASHBOARD_PORT}/cgi-bin/ui"
+    if [[ "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
+        color yellow "dashboard auth mode: Argon2 hash (${#DASHBOARD_ADMIN_TOKEN} chars) - enter your plain password in the frontend UI"
+    else
+        color yellow "dashboard auth mode: Plain password (${#DASHBOARD_ADMIN_TOKEN} chars)"
+    fi
 
     # Create a Python CGI HTTP server launcher
     local CGI_SERVER_SCRIPT="${DASHBOARD_ROOT}/cgi_server.py"
