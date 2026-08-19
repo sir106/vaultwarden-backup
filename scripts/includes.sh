@@ -107,6 +107,84 @@ function check_dir_exist() {
 }
 
 ########################################
+# Convert a date format string to a regular expression.
+# Arguments:
+#     date format string
+# Outputs:
+#     regular expression
+########################################
+function date_format_to_regex() {
+    local fmt="$1"
+    local rx=""
+    local len=${#fmt}
+    local i=0
+
+    while (( i < len )); do
+        local c="${fmt:$i:1}"
+        if [[ "$c" == "%" ]]; then
+            (( i++ ))
+            if (( i >= len )); then
+                rx="${rx}%"
+                break
+            fi
+            local flag=""
+            local next_c="${fmt:$i:1}"
+            if [[ "$next_c" =~ ^[-_0^#]$ ]]; then
+                flag="$next_c"
+                (( i++ ))
+                if (( i >= len )); then
+                    rx="${rx}%${flag}"
+                    break
+                fi
+                next_c="${fmt:$i:1}"
+            fi
+
+            case "$next_c" in
+                "%") rx="${rx}%" ;;
+                "Y"|"G") rx="${rx}[0-9]{4}" ;;
+                "y"|"g"|"C") rx="${rx}[0-9]{2}" ;;
+                "m"|"d"|"H"|"M"|"S"|"I"|"V"|"U"|"W")
+                    if [[ "$flag" == "-" ]]; then
+                        rx="${rx}[0-9]{1,2}"
+                    elif [[ "$flag" == "_" ]]; then
+                        rx="${rx}[0-9 ]{1,2}"
+                    else
+                        rx="${rx}[0-9]{2}"
+                    fi
+                    ;;
+                "e"|"k"|"l") rx="${rx}[0-9 ]{1,2}" ;;
+                "j") rx="${rx}[0-9]{3}" ;;
+                "u") rx="${rx}[1-7]" ;;
+                "w") rx="${rx}[0-6]" ;;
+                "s") rx="${rx}[0-9]+" ;;
+                "N") rx="${rx}[0-9]{1,9}" ;;
+                "F") rx="${rx}[0-9]{4}-[0-9]{2}-[0-9]{2}" ;;
+                "T") rx="${rx}[0-9]{2}:[0-9]{2}:[0-9]{2}" ;;
+                "R") rx="${rx}[0-9]{2}:[0-9]{2}" ;;
+                "b"|"h"|"B"|"a"|"A"|"p"|"P") rx="${rx}[A-Za-z]+" ;;
+                "z") rx="${rx}[+-][0-9]{4}" ;;
+                "Z") rx="${rx}[A-Za-z0-9_+-]+" ;;
+                *)
+                    rx="${rx}[0-9a-zA-Z_-]+"
+                    ;;
+            esac
+        else
+            case "$c" in
+                \\|\.|\^|\$|\*|\+|\?|\(|\)|\[|\]|\{|\}|\|)
+                    rx="${rx}\\${c}"
+                    ;;
+                *)
+                    rx="${rx}${c}"
+                    ;;
+            esac
+        fi
+        (( i++ ))
+    done
+
+    echo "$rx"
+}
+
+########################################
 # Send mail by s-nail.
 # Arguments:
 #     mail subject
@@ -389,7 +467,23 @@ function init_env() {
 
     # BACKUP_KEEP_DAYS
     get_env BACKUP_KEEP_DAYS
-    BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-"0"}"
+    BACKUP_KEEP_DAYS="${BACKUP_KEEP_DAYS:-"7"}"
+
+    # BACKUP_KEEP_WEEKS
+    get_env BACKUP_KEEP_WEEKS
+    BACKUP_KEEP_WEEKS="${BACKUP_KEEP_WEEKS:-"4"}"
+
+    # BACKUP_KEEP_MONTHS
+    get_env BACKUP_KEEP_MONTHS
+    BACKUP_KEEP_MONTHS="${BACKUP_KEEP_MONTHS:-"12"}"
+
+    # BACKUP_KEEP_YEARS
+    get_env BACKUP_KEEP_YEARS
+    BACKUP_KEEP_YEARS="${BACKUP_KEEP_YEARS:-"3"}"
+
+    # BACKUP_KEEP_LAST
+    get_env BACKUP_KEEP_LAST
+    BACKUP_KEEP_LAST="${BACKUP_KEEP_LAST:-"0"}"
 
     # BACKUP_FILE_DATE_FORMAT
     get_env BACKUP_FILE_SUFFIX
@@ -397,6 +491,7 @@ function init_env() {
     get_env BACKUP_FILE_DATE_SUFFIX
     BACKUP_FILE_DATE="$(echo "${BACKUP_FILE_DATE:-"%Y%m%d"}${BACKUP_FILE_DATE_SUFFIX}" | sed 's/[^0-9a-zA-Z%_-]//g')"
     BACKUP_FILE_DATE_FORMAT="$(echo "${BACKUP_FILE_SUFFIX:-"${BACKUP_FILE_DATE}"}" | sed 's/\///g')"
+    BACKUP_FILE_SUFFIX_REGEX="$(date_format_to_regex "${BACKUP_FILE_DATE_FORMAT}")"
 
     # TIMEZONE
     get_env TIMEZONE
@@ -423,43 +518,38 @@ function init_env() {
             color yellow "DATA_DB: ${DATA_DB}"
         fi
 
-        color yellow "========================================"
-        color yellow "CRON: ${CRON}"
-
-        for RCLONE_REMOTE_X in "${RCLONE_REMOTE_LIST[@]}"
-        do
-            color yellow "RCLONE_REMOTE: ${RCLONE_REMOTE_X}"
-        done
-
-        color yellow "RCLONE_GLOBAL_FLAG: ${RCLONE_GLOBAL_FLAG}"
-        color yellow "ZIP_ENABLE: ${ZIP_ENABLE}"
-        color yellow "ZIP_PASSWORD: ${#ZIP_PASSWORD} Chars"
-        color yellow "ZIP_TYPE: ${ZIP_TYPE}"
-        color yellow "BACKUP_FILE_DATE_FORMAT: ${BACKUP_FILE_DATE_FORMAT} (example \"[filename].$(date +"${BACKUP_FILE_DATE_FORMAT}").[ext]\")"
-        color yellow "BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS}"
-        if [[ -n "${PING_URL}" ]]; then
-            color yellow "PING_URL: curl${PING_URL_CURL_OPTIONS:+" ${PING_URL_CURL_OPTIONS}"} \"${PING_URL}\""
-        fi
-        if [[ -n "${PING_URL_WHEN_START}" ]]; then
-            color yellow "PING_URL_WHEN_START: curl${PING_URL_WHEN_START_CURL_OPTIONS:+" ${PING_URL_WHEN_START_CURL_OPTIONS}"} \"${PING_URL_WHEN_START}\""
-        fi
-        if [[ -n "${PING_URL_WHEN_SUCCESS}" ]]; then
-            color yellow "PING_URL_WHEN_SUCCESS: curl${PING_URL_WHEN_SUCCESS_CURL_OPTIONS:+" ${PING_URL_WHEN_SUCCESS_CURL_OPTIONS}"} \"${PING_URL_WHEN_SUCCESS}\""
-        fi
-        if [[ -n "${PING_URL_WHEN_FAILURE}" ]]; then
-            color yellow "PING_URL_WHEN_FAILURE: curl${PING_URL_WHEN_FAILURE_CURL_OPTIONS:+" ${PING_URL_WHEN_FAILURE_CURL_OPTIONS}"} \"${PING_URL_WHEN_FAILURE}\""
-        fi
-        color yellow "MAIL_SMTP_ENABLE: ${MAIL_SMTP_ENABLE}"
-        if [[ "${MAIL_SMTP_ENABLE}" == "TRUE" ]]; then
-            color yellow "MAIL_TO: ${MAIL_TO}"
-            color yellow "MAIL_WHEN_SUCCESS: ${MAIL_WHEN_SUCCESS}"
-            color yellow "MAIL_WHEN_FAILURE: ${MAIL_WHEN_FAILURE}"
-            if [[ "${MAIL_USE_THREAD}" == "TRUE" ]]; then
-                if [[ -n "${MAIL_PARENT_MESSAGE_ID}" ]]; then
-                    color yellow "MAIL_PARENT_MESSAGE_ID: ${MAIL_PARENT_MESSAGE_ID}"
-                else
-                    color yellow "MAIL_MESSAGE_ID: auto generate"
-                fi
+    color yellow "RCLONE_GLOBAL_FLAG: ${RCLONE_GLOBAL_FLAG}"
+    color yellow "ZIP_ENABLE: ${ZIP_ENABLE}"
+    color yellow "ZIP_PASSWORD: ${#ZIP_PASSWORD} Chars"
+    color yellow "ZIP_TYPE: ${ZIP_TYPE}"
+    color yellow "BACKUP_FILE_DATE_FORMAT: ${BACKUP_FILE_DATE_FORMAT} (example \"[filename].$(date +"${BACKUP_FILE_DATE_FORMAT}").[ext]\")"
+    color yellow "BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS}"
+    color yellow "BACKUP_KEEP_WEEKS: ${BACKUP_KEEP_WEEKS}"
+    color yellow "BACKUP_KEEP_MONTHS: ${BACKUP_KEEP_MONTHS}"
+    color yellow "BACKUP_KEEP_YEARS: ${BACKUP_KEEP_YEARS}"
+    color yellow "BACKUP_KEEP_LAST: ${BACKUP_KEEP_LAST}"
+    if [[ -n "${PING_URL}" ]]; then
+        color yellow "PING_URL: curl${PING_URL_CURL_OPTIONS:+" ${PING_URL_CURL_OPTIONS}"} \"${PING_URL}\""
+    fi
+    if [[ -n "${PING_URL_WHEN_START}" ]]; then
+        color yellow "PING_URL_WHEN_START: curl${PING_URL_WHEN_START_CURL_OPTIONS:+" ${PING_URL_WHEN_START_CURL_OPTIONS}"} \"${PING_URL_WHEN_START}\""
+    fi
+    if [[ -n "${PING_URL_WHEN_SUCCESS}" ]]; then
+        color yellow "PING_URL_WHEN_SUCCESS: curl${PING_URL_WHEN_SUCCESS_CURL_OPTIONS:+" ${PING_URL_WHEN_SUCCESS_CURL_OPTIONS}"} \"${PING_URL_WHEN_SUCCESS}\""
+    fi
+    if [[ -n "${PING_URL_WHEN_FAILURE}" ]]; then
+        color yellow "PING_URL_WHEN_FAILURE: curl${PING_URL_WHEN_FAILURE_CURL_OPTIONS:+" ${PING_URL_WHEN_FAILURE_CURL_OPTIONS}"} \"${PING_URL_WHEN_FAILURE}\""
+    fi
+    color yellow "MAIL_SMTP_ENABLE: ${MAIL_SMTP_ENABLE}"
+    if [[ "${MAIL_SMTP_ENABLE}" == "TRUE" ]]; then
+        color yellow "MAIL_TO: ${MAIL_TO}"
+        color yellow "MAIL_WHEN_SUCCESS: ${MAIL_WHEN_SUCCESS}"
+        color yellow "MAIL_WHEN_FAILURE: ${MAIL_WHEN_FAILURE}"
+        if [[ "${MAIL_USE_THREAD}" == "TRUE" ]]; then
+            if [[ -n "${MAIL_PARENT_MESSAGE_ID}" ]]; then
+                color yellow "MAIL_PARENT_MESSAGE_ID: ${MAIL_PARENT_MESSAGE_ID}"
+            else
+                color yellow "MAIL_MESSAGE_ID: auto generate"
             fi
         fi
         color yellow "DASHBOARD_ENABLE: ${DASHBOARD_ENABLE}"
