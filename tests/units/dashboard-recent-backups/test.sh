@@ -39,8 +39,8 @@ function start() {
         --mount "type=bind,source=${TEST_RESTORE_DIR},target=/bitwarden/data/" \
         --mount "type=bind,source=${TEST_CONFIG_DIR},target=/root/.config/rclone/" \
         -e "RCLONE_REMOTE_DIR=${REMOTE_DIR}" \
-        -e "DASHBOARD_ENABLE=TRUE" \
-        -e "ADMIN_TOKEN=${TEST_TOKEN}" \
+        -e "BACKUP_DASHBOARD_ENABLE=TRUE" \
+        -e "BACKUP_DASHBOARD_ADMIN_TOKEN=${TEST_TOKEN}" \
         -e "CRON=0 0 31 2 *" \
         "${DOCKER_IMAGE}"
 }

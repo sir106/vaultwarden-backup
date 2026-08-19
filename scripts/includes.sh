@@ -553,11 +553,17 @@ function init_env() {
                 fi
             fi
         fi
-        color yellow "DASHBOARD_ENABLE: ${DASHBOARD_ENABLE}"
-        if [[ "${DASHBOARD_ENABLE}" == "TRUE" ]]; then
-            color yellow "DASHBOARD_BIND_ADDR: ${DASHBOARD_BIND_ADDR}"
-            color yellow "DASHBOARD_PORT: ${DASHBOARD_PORT}"
-            color yellow "ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars"
+        color yellow "BACKUP_DASHBOARD_ENABLE: ${BACKUP_DASHBOARD_ENABLE}"
+        if [[ "${BACKUP_DASHBOARD_ENABLE}" == "TRUE" ]]; then
+            color yellow "BACKUP_DASHBOARD_BIND_ADDR: ${BACKUP_DASHBOARD_BIND_ADDR}"
+            color yellow "BACKUP_DASHBOARD_PORT: ${BACKUP_DASHBOARD_PORT}"
+            if [[ -z "${DASHBOARD_ADMIN_TOKEN}" ]]; then
+                color red "BACKUP_DASHBOARD_ADMIN_TOKEN: [EMPTY] (Warning: Token is empty. Dashboard authentication will fail!)"
+            elif [[ "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^\$\$argon2 || "${DASHBOARD_ADMIN_TOKEN}" =~ ^[\'\"]\$argon2 ]]; then
+                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars (Argon2 hash detected - enter your plain password in the frontend UI)"
+            else
+                color yellow "BACKUP_DASHBOARD_ADMIN_TOKEN: ${#DASHBOARD_ADMIN_TOKEN} Chars (Plain password detected)"
+            fi
         fi
         color yellow "TIMEZONE: ${TIMEZONE}"
         color yellow "DISPLAY_NAME: ${DISPLAY_NAME}"
@@ -755,29 +761,26 @@ function init_env_mail() {
 }
 
 function init_env_dashboard() {
-    # DASHBOARD_ENABLE
-    get_env DASHBOARD_ENABLE
-    if [[ "${DASHBOARD_ENABLE^^}" == "TRUE" ]]; then
-        DASHBOARD_ENABLE="TRUE"
+    # BACKUP_DASHBOARD_ENABLE
+    get_env BACKUP_DASHBOARD_ENABLE
+    if [[ "${BACKUP_DASHBOARD_ENABLE^^}" == "TRUE" ]]; then
+        BACKUP_DASHBOARD_ENABLE="TRUE"
     else
-        DASHBOARD_ENABLE="FALSE"
+        BACKUP_DASHBOARD_ENABLE="FALSE"
     fi
+    DASHBOARD_ENABLE="${BACKUP_DASHBOARD_ENABLE}"
 
-    # DASHBOARD_BIND_ADDR
-    get_env DASHBOARD_BIND_ADDR
-    DASHBOARD_BIND_ADDR="${DASHBOARD_BIND_ADDR:-"0.0.0.0"}"
+    # BACKUP_DASHBOARD_BIND_ADDR
+    get_env BACKUP_DASHBOARD_BIND_ADDR
+    BACKUP_DASHBOARD_BIND_ADDR="${BACKUP_DASHBOARD_BIND_ADDR:-"0.0.0.0"}"
+    DASHBOARD_BIND_ADDR="${BACKUP_DASHBOARD_BIND_ADDR}"
 
-    # DASHBOARD_PORT
-    get_env DASHBOARD_PORT
-    DASHBOARD_PORT="${DASHBOARD_PORT:-"8080"}"
+    # BACKUP_DASHBOARD_PORT
+    get_env BACKUP_DASHBOARD_PORT
+    BACKUP_DASHBOARD_PORT="${BACKUP_DASHBOARD_PORT:-"8080"}"
+    DASHBOARD_PORT="${BACKUP_DASHBOARD_PORT}"
 
-    # ADMIN_TOKEN
-    # Reuse Vaultwarden ADMIN_TOKEN when available.
-    get_env VAULTWARDEN_ADMIN_TOKEN
-    if [[ -z "${VAULTWARDEN_ADMIN_TOKEN}" ]]; then
-        get_env ADMIN_TOKEN
-        DASHBOARD_ADMIN_TOKEN="${ADMIN_TOKEN}"
-    else
-        DASHBOARD_ADMIN_TOKEN="${VAULTWARDEN_ADMIN_TOKEN}"
-    fi
+    # BACKUP_DASHBOARD_ADMIN_TOKEN
+    get_env BACKUP_DASHBOARD_ADMIN_TOKEN
+    DASHBOARD_ADMIN_TOKEN="${BACKUP_DASHBOARD_ADMIN_TOKEN}"
 }
