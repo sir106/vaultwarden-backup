@@ -2,6 +2,8 @@ name: 'Docker Publish'
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*.*.*'
   schedule:
@@ -11,12 +13,12 @@ permissions:
   packages: write
 
 jobs:
-  publish-stable:
-    name: Docker Publish
+  publish-latest:
+    name: Docker Publish Latest
 
     runs-on: ubuntu-latest
 
-    if: ${{ github.event_name != 'schedule' && !contains(github.ref, '-') }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
     steps:
       -
@@ -24,19 +26,13 @@ jobs:
         uses: actions/checkout@v7
       -
         name: Prepare
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+        run: echo "VERSION=latest" >> $GITHUB_ENV
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v4
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
-      -
-        name: Login to DockerHub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
       -
         name: Login to ghcr.io
         uses: docker/login-action@v4
@@ -52,7 +48,57 @@ jobs:
           labels: |
             org.opencontainers.image.title=vaultwarden-backup
             org.opencontainers.image.description=Backup vaultwarden SQLite3/PostgreSQL/MySQL/MariaDB database by rclone
-            org.opencontainers.image.authors=ttionya
+            org.opencontainers.image.authors=sir106
+            org.opencontainers.image.version=latest
+      -
+        name: Build and push
+        uses: docker/bake-action@v7
+        env:
+          VERSION: latest
+        with:
+          source: .
+          files: |
+            ./docker-bake.hcl
+            ${{ steps.meta.outputs.bake-file-labels }}
+          targets: image-latest
+          push: true
+
+  publish-stable:
+    name: Docker Publish
+
+    runs-on: ubuntu-latest
+
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-') }}
+
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Prepare
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      -
+        name: Login to ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          labels: |
+            org.opencontainers.image.title=vaultwarden-backup
+            org.opencontainers.image.description=Backup vaultwarden SQLite3/PostgreSQL/MySQL/MariaDB database by rclone
+            org.opencontainers.image.authors=sir106
             org.opencontainers.image.version=${{ env.VERSION }}
       -
         name: Build and push
@@ -72,7 +118,7 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    if: ${{ github.event_name != 'schedule' && contains(github.ref, '-') }}
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && contains(github.ref, '-') }}
 
     steps:
       -
@@ -88,11 +134,12 @@ jobs:
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       -
-        name: Login to DockerHub
+        name: Login to ghcr.io
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       -
         name: Docker meta
         id: meta
@@ -101,7 +148,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=vaultwarden-backup
             org.opencontainers.image.description=Backup vaultwarden SQLite3/PostgreSQL/MySQL/MariaDB database by rclone
-            org.opencontainers.image.authors=ttionya
+            org.opencontainers.image.authors=sir106
             org.opencontainers.image.version=${{ env.VERSION }}
       -
         name: Build and push
@@ -148,12 +195,6 @@ jobs:
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
       -
-        name: Login to DockerHub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      -
         name: Login to ghcr.io
         uses: docker/login-action@v4
         with:
@@ -168,7 +209,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=vaultwarden-backup
             org.opencontainers.image.description=Backup vaultwarden SQLite3/PostgreSQL/MySQL/MariaDB database by rclone
-            org.opencontainers.image.authors=ttionya
+            org.opencontainers.image.authors=sir106
             org.opencontainers.image.version=${{ env.VERSION }}
       -
         name: Build and push

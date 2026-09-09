@@ -1,0 +1,65 @@
+name: Rebuild Main Branch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cleanup/sir106-repo-updates
+      - feature/retention-policy
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  rebuild-main:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Rebuild and Merge Branches
+        id: merge_step
+        run: |
+          git fetch origin
+
+          # 1. Basis-Branch: cleanup/sir106-repo-updates als Fundament für main
+          git checkout -B main origin/cleanup/sir106-repo-updates
+
+          # 2. Folgende Branches nacheinander einmergen
+          BRANCHES_TO_MERGE=(
+            "origin/feature/retention-policy"
+          )
+
+          for branch in "${BRANCHES_TO_MERGE[@]}"; do
+            echo "Merging $branch into main..."
+            if ! git merge --no-edit "$branch"; then
+              echo "FAILED_BRANCH=$branch" >> "$GITHUB_ENV"
+              exit 1
+            fi
+          done
+
+      - name: Force-Push to Main
+        run: |
+          git push origin main --force
+
+      - name: Create Issue on Merge Conflict
+        if: failure() && steps.merge_step.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "⚠️ Merge-Konflikt beim Neuaufbau von main ($FAILED_BRANCH)" \
+            --body "Automatischer Neuaufbau fehlgeschlagen bei Branch: \`$FAILED_BRANCH\`.
+
+            [Workflow Run ansehen](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" \
+            --assignee "${{ github.actor }}"
